@@ -1,0 +1,10 @@
+build/
+*.user
+*.o
+*.moc
+.DS_Store
+__pycache__/
+*.pyc
+pkg/
+src/*.tar.zst
+*.pkg.tar.zst
