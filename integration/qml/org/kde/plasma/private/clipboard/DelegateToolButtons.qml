@@ -36,7 +36,9 @@ GridLayout {
         {
             role: DelegateToolButtons.ButtonRole.SendToPhone,
             icon: "document-send",
-            text: "Отправить на телефон через KQuickShare",
+            text: Qt.locale().uiLanguages[0]?.toLowerCase().startsWith("ru")
+                ? "Отправить на телефон через KQuickShare"
+                : "Send to phone with KQuickShare",
             visible: menuItem.type === toolButtonsLayout.textItemType,
             enabled: !!menuItem.model?.display
         },

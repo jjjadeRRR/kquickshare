@@ -24,7 +24,9 @@ Quick Share over your local network; no companion Android app is needed.
 - Encrypted UKEY2 / P-256 / AES-256-CBC / HMAC-SHA256 transport.
 - Partial-file cleanup and collision-safe filenames; existing files are preserved.
 
-The application interface is currently in Russian. Tested on Arch Linux,
+The interface follows the system’s language preferences: Russian or English,
+with English as the fallback for other languages. Restart the application after
+changing your desktop language. Tested on Arch Linux,
 KDE Plasma 6.8 and a Pixel 7 Pro, in both directions. Other Android devices and
 Plasma releases need wider testing.
 
@@ -43,24 +45,28 @@ https://github.com/jjjadeRRR/kquickshare
 
 ## Install from source
 
+Download and extract the source archive from [Releases](https://github.com/jjjadeRRR/kquickshare/releases),
+open a terminal in the extracted folder and run **one command**:
+
 ```sh
-sudo pacman -S --needed base-devel cmake ninja qt6-base qt6-svg knotifications kstatusnotifieritem prison
-cmake -S . -B build -G Ninja \
-    -DCMAKE_INSTALL_PREFIX="$HOME/.local" \
-    -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
-cmake --build build
-cmake --install build
-systemctl --user daemon-reload
-"$HOME/.local/bin/kquickshare"
+./install.sh
 ```
 
-The application is also available from the KDE application menu. Enable startup
-at login in its settings. Closing the window keeps the receiver in the tray;
-choose Exit in the tray menu to stop it. Start in the background with
-`kquickshare --background`. After updating, restart KQuickShare.
+On Arch Linux, the installer checks build dependencies and asks `pacman` to
+install missing packages (using sudo when needed). It builds the application,
+installs it for your user in `~/.local` and starts it in your desktop session.
+Run it as your normal desktop user, without sudo. Installing missing dependencies
+may ask for your administrator password; the application itself runs as your user.
 
-For an Arch package, generate the source archive with `packaging/make-source.sh`,
-then run `cd packaging && makepkg -si`. Review the PKGBUILD before installing.
+KQuickShare appears in the KDE application menu and system tray. Enable startup
+at login in its settings. Closing the window keeps the receiver in the tray;
+choose Exit in the tray menu to stop it. Running `./install.sh` again updates the
+application and restarts it; finish current transfers before updating.
+
+The installer does not enable the optional clipboard overlay automatically.
+Other distributions need Qt 6 and KDE Frameworks development packages installed
+first. See [manual build instructions](docs/BUILDING.md) for custom prefixes,
+headless installation and build dependencies.
 
 ## Receive from Android
 

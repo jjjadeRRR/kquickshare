@@ -1,4 +1,6 @@
 #include "receiver.h"
+#include "localization.h"
+#include <QLibraryInfo>
 #include <QApplication>
 #include <QClipboard>
 #include <QCommandLineParser>
@@ -33,21 +35,29 @@ class Activation : public QDBusAbstractAdaptor {
 };
 int main(int argc, char **argv) {
     QApplication app(argc, argv);
+    QTranslator appTranslation, qtTranslation;
+    if (!localization::load(appTranslation)) {
+        qCritical("Could not load the embedded application translations");
+        return 1;
+    }
+    if (localization::language() == "ru" &&
+        qtTranslation.load("qtbase_ru", QLibraryInfo::path(QLibraryInfo::TranslationsPath)))
+        app.installTranslator(&qtTranslation);
     app.setApplicationName("kquickshare");
     app.setOrganizationName("KQuickShare");
-    app.setApplicationVersion("0.2.0");
+    app.setApplicationVersion(KQUICKSHARE_VERSION);
     app.setDesktopFileName("org.kde.kquickshare");
     app.setWindowIcon(QIcon::fromTheme("org.kde.kquickshare"));
     app.setQuitOnLastWindowClosed(false);
     QCommandLineParser parser;
-    parser.setApplicationDescription("Quick Share для KDE Plasma — приём файлов с Android");
-    parser.addOption({"daemon", "Внутренний запуск фоновой службы"});
+    parser.setApplicationDescription(QCoreApplication::translate("Main", "Quick Share для KDE Plasma — приём файлов с Android"));
+    parser.addOption({"daemon", QCoreApplication::translate("Main", "Внутренний запуск фоновой службы")});
     parser.addHelpOption();
     parser.addVersionOption();
-    parser.addOption({"background", "Запуск в трее без открытия окна"});
-    parser.addOption({"send", "Отправить выбранные файлы на телефон"});
-    parser.addOption({"clipboard", "Отправить текст из буфера обмена на телефон"});
-    parser.addPositionalArgument("files", "Локальные файлы для отправки", "[files…]");
+    parser.addOption({"background", QCoreApplication::translate("Main", "Запуск в трее без открытия окна")});
+    parser.addOption({"send", QCoreApplication::translate("Main", "Отправить выбранные файлы на телефон")});
+    parser.addOption({"clipboard", QCoreApplication::translate("Main", "Отправить текст из буфера обмена на телефон")});
+    parser.addPositionalArgument("files", QCoreApplication::translate("Main", "Локальные файлы для отправки"), "[files…]");
     parser.process(app);
     const QStringList files = parser.positionalArguments();
     const bool sending = parser.isSet("send") || !files.isEmpty();

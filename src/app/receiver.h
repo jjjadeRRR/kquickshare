@@ -14,6 +14,7 @@ class QProgressBar;
 class KStatusNotifierItem;
 class KNotification;
 class Receiver : public QMainWindow {
+    Q_OBJECT
   public:
     explicit Receiver(const QString &destinationOverride = QString());
     ~Receiver() override;

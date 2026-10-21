@@ -8,7 +8,7 @@ StartLimitBurst=5
 [Service]
 Type=dbus
 BusName=org.kde.kquickshare
-ExecStart=@CMAKE_INSTALL_PREFIX@/bin/kquickshare --daemon --background
+ExecStart="@CMAKE_INSTALL_PREFIX@/bin/kquickshare" --daemon --background
 Restart=on-failure
 RestartSec=3
 TimeoutStopSec=10

@@ -1,5 +1,7 @@
-cmake_minimum_required(VERSION 3.16)
-project(kquickshare VERSION 0.2.0 LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.19)
+project(kquickshare VERSION 0.3.0 LANGUAGES CXX)
+
+add_compile_definitions(KQUICKSHARE_VERSION="${PROJECT_VERSION}")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -28,7 +30,7 @@ target_link_libraries(kquickshare-cli PRIVATE kqscore)
 
 option(BUILD_GUI "Build the native KDE application" ON)
 if(BUILD_GUI)
-    find_package(Qt6 REQUIRED COMPONENTS Widgets DBus)
+    find_package(Qt6 REQUIRED COMPONENTS Widgets DBus LinguistTools)
     find_package(KF6Notifications REQUIRED)
     find_package(KF6StatusNotifierItem REQUIRED)
     find_package(KF6Prison REQUIRED)
@@ -85,3 +87,16 @@ if(BUILD_TESTING AND BUILD_GUI)
 endif()
 
 install(FILES LICENSE NOTICE.md DESTINATION share/licenses/kquickshare)
+
+if(BUILD_GUI)
+    set(KQUICKSHARE_TRANSLATION_TARGETS kquickshare)
+    if(TARGET gui-tests)
+        list(APPEND KQUICKSHARE_TRANSLATION_TARGETS gui-tests)
+    endif()
+    set(QT_I18N_SOURCE_LANGUAGE ru_RU)
+    qt_add_translations(TARGETS ${KQUICKSHARE_TRANSLATION_TARGETS}
+        SOURCE_TARGETS kqscore kquickshare
+        TS_FILES translations/kquickshare_en.ts
+        RESOURCE_PREFIX "/i18n"
+        NO_GENERATE_PLURALS_TS_FILE)
+endif()

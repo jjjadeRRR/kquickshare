@@ -49,7 +49,7 @@ bool NearbyServer::start(const QString &deviceName, DeviceType deviceType)
 
     m_tcpServer = new QTcpServer(this);
     if (!m_tcpServer->listen(QHostAddress::AnyIPv4, 0)) {
-        emit errorOccurred(QStringLiteral("Не удалось открыть TCP-порт: %1").arg(m_tcpServer->errorString()));
+        emit errorOccurred(tr("Не удалось открыть TCP-порт: %1").arg(m_tcpServer->errorString()));
         stop();
         return false;
     }
@@ -70,7 +70,7 @@ bool NearbyServer::start(const QString &deviceName, DeviceType deviceType)
     m_mdns = new MdnsResponder(QStringLiteral("_FC9F5ED42C8A._tcp.local"),
                                QString::fromLatin1(instanceName), hostName, port, endpointInfo, this);
     if (!m_mdns->start()) {
-        emit errorOccurred(QStringLiteral("Не удалось запустить mDNS-анонс"));
+        emit errorOccurred(tr("Не удалось запустить mDNS-анонс"));
         stop();
         return false;
     }

@@ -59,7 +59,7 @@ InboundConnection::InboundConnection(QTcpSocket *socket, QObject *parent)
     m_idleTimer = new QTimer(this);
     m_idleTimer->setInterval(180000);
     connect(m_idleTimer, &QTimer::timeout, this, [this] {
-        finishWithError(QStringLiteral("Устройство не отвечает"));
+        finishWithError(tr("Устройство не отвечает"));
     });
     m_idleTimer->start();
     m_keepAliveTimer = new QTimer(this);
@@ -74,7 +74,7 @@ InboundConnection::InboundConnection(QTcpSocket *socket, QObject *parent)
         if (m_state != State::Done) {
             qWarning("Quick Share inbound disconnected: peer=%s state=%d",
                      qPrintable(m_socket->peerAddress().toString()), int(m_state));
-            m_error = QStringLiteral("Соединение прервано");
+            m_error = tr("Соединение прервано");
             m_state = State::Done;
             cleanupFiles(true);
         }
@@ -104,7 +104,7 @@ void InboundConnection::onReadyRead()
         const auto *p = reinterpret_cast<const uchar *>(m_readBuffer.constData());
         const quint32 frameLength = quint32(p[0]) << 24 | quint32(p[1]) << 16 | quint32(p[2]) << 8 | quint32(p[3]);
         if (frameLength == 0 || frameLength > kMaxFrameLength) {
-            finishWithError(QStringLiteral("Слишком большой кадр"));
+            finishWithError(tr("Слишком большой кадр"));
             return;
         }
         if (m_readBuffer.size() < qsizetype(4 + frameLength))
@@ -143,12 +143,12 @@ void InboundConnection::processConnectionRequest(const QByteArray &frameData)
     frames::OfflineFrame frame;
     if (!frames::parseOfflineFrame(frameData, frame)
         || frame.type != frames::OfflineFrameType::ConnectionRequest) {
-        finishWithError(QStringLiteral("Ожидался CONNECTION_REQUEST"));
+        finishWithError(tr("Ожидался CONNECTION_REQUEST"));
         return;
     }
     EndpointInfo info;
     if (!EndpointInfo::parse(frame.endpointInfo, info)) {
-        finishWithError(QStringLiteral("Некорректный endpoint info"));
+        finishWithError(tr("Некорректный endpoint info"));
         return;
     }
     m_deviceName = info.name.isEmpty() ? QStringLiteral("Android") : info.name;
@@ -161,33 +161,33 @@ void InboundConnection::processUkey2ClientInit(const QByteArray &frameData)
     frames::Ukey2Message msg;
     if (!frames::parseUkey2Message(frameData, msg) || msg.type != int(frames::Ukey2Type::ClientInit)) {
         sendRawFrame(frames::buildUkey2Alert(3)); // INCORRECT_MESSAGE
-        finishWithError(QStringLiteral("Ожидался UKEY2 CLIENT_INIT"));
+        finishWithError(tr("Ожидался UKEY2 CLIENT_INIT"));
         return;
     }
     frames::Ukey2ClientInit clientInit;
     if (!frames::parseUkey2ClientInit(msg.data, clientInit)) {
         sendRawFrame(frames::buildUkey2Alert(4)); // BAD_MESSAGE_DATA
-        finishWithError(QStringLiteral("Некорректный CLIENT_INIT"));
+        finishWithError(tr("Некорректный CLIENT_INIT"));
         return;
     }
     if (clientInit.version != 1) {
         sendRawFrame(frames::buildUkey2Alert(100)); // BAD_VERSION
-        finishWithError(QStringLiteral("UKEY2: неверная версия"));
+        finishWithError(tr("UKEY2: неверная версия"));
         return;
     }
     if (clientInit.random.size() != 32) {
         sendRawFrame(frames::buildUkey2Alert(101)); // BAD_RANDOM
-        finishWithError(QStringLiteral("UKEY2: неверный random"));
+        finishWithError(tr("UKEY2: неверный random"));
         return;
     }
     if (clientInit.p256Commitment.size() != 64) {
         sendRawFrame(frames::buildUkey2Alert(102)); // BAD_HANDSHAKE_CIPHER
-        finishWithError(QStringLiteral("UKEY2: нет коммитмента P256_SHA512"));
+        finishWithError(tr("UKEY2: нет коммитмента P256_SHA512"));
         return;
     }
     if (clientInit.nextProtocol != QLatin1String("AES_256_CBC-HMAC_SHA256")) {
         sendRawFrame(frames::buildUkey2Alert(103)); // BAD_NEXT_PROTOCOL
-        finishWithError(QStringLiteral("UKEY2: неверный next_protocol"));
+        finishWithError(tr("UKEY2: неверный next_protocol"));
         return;
     }
     m_cipherCommitment = clientInit.p256Commitment;
@@ -195,12 +195,12 @@ void InboundConnection::processUkey2ClientInit(const QByteArray &frameData)
 
     m_keyPair = crypto::generateP256();
     if (!m_keyPair) {
-        finishWithError(QStringLiteral("Не удалось сгенерировать ключ"));
+        finishWithError(tr("Не удалось сгенерировать ключ"));
         return;
     }
     QByteArray x, y;
     if (!crypto::p256PublicXY(m_keyPair.get(), x, y)) {
-        finishWithError(QStringLiteral("Не удалось получить публичный ключ"));
+        finishWithError(tr("Не удалось получить публичный ключ"));
         return;
     }
     const QByteArray serverInit = frames::buildUkey2ServerInit(crypto::toSignedBytes(x), crypto::toSignedBytes(y));
@@ -213,23 +213,23 @@ void InboundConnection::processUkey2ClientFinish(const QByteArray &frameData)
 {
     frames::Ukey2Message msg;
     if (!frames::parseUkey2Message(frameData, msg) || msg.type != int(frames::Ukey2Type::ClientFinish)) {
-        finishWithError(QStringLiteral("Ожидался UKEY2 CLIENT_FINISH"));
+        finishWithError(tr("Ожидался UKEY2 CLIENT_FINISH"));
         return;
     }
     if (crypto::sha512(frameData) != m_cipherCommitment) {
-        finishWithError(QStringLiteral("UKEY2: коммитмент не совпал"));
+        finishWithError(tr("UKEY2: коммитмент не совпал"));
         return;
     }
     QByteArray peerX, peerY;
     if (!frames::parseUkey2ClientFinished(msg.data, peerX, peerY)) {
-        finishWithError(QStringLiteral("UKEY2: неверный публичный ключ клиента"));
+        finishWithError(tr("UKEY2: неверный публичный ключ клиента"));
         return;
     }
 
     // Key derivation (docs/protocol.md)
     const QByteArray shared = crypto::ecdhSharedX(m_keyPair.get(), peerX, peerY);
     if (shared.size() != 32) {
-        finishWithError(QStringLiteral("UKEY2: недопустимый ключ устройства"));
+        finishWithError(tr("UKEY2: недопустимый ключ устройства"));
         return;
     }
     const QByteArray dhs = crypto::sha256(shared);
@@ -257,7 +257,7 @@ void InboundConnection::processConnectionResponse(const QByteArray &frameData)
     if (!frames::parseOfflineFrame(frameData, frame)
         || frame.type != frames::OfflineFrameType::ConnectionResponse
         || frame.connectionResponse != 1) {
-        finishWithError(QStringLiteral("Ожидался CONNECTION_RESPONSE"));
+        finishWithError(tr("Ожидался CONNECTION_RESPONSE"));
         return;
     }
     sendRawFrame(frames::buildConnectionResponseAccept());
@@ -272,12 +272,12 @@ void InboundConnection::processSecureMessage(const QByteArray &frameData)
     QByteArray offlineFrameRaw;
     ++m_clientSeq;
     if (!frames::decryptSecureMessage(frameData, m_decryptKey, m_recvHmacKey, m_clientSeq, offlineFrameRaw)) {
-        finishWithError(QStringLiteral("Не удалось расшифровать сообщение"));
+        finishWithError(tr("Не удалось расшифровать сообщение"));
         return;
     }
     frames::OfflineFrame frame;
     if (!frames::parseOfflineFrame(offlineFrameRaw, frame)) {
-        finishWithError(QStringLiteral("Некорректный offline frame"));
+        finishWithError(tr("Некорректный offline frame"));
         return;
     }
     switch (frame.type) {
@@ -288,7 +288,7 @@ void InboundConnection::processSecureMessage(const QByteArray &frameData)
         if (!frame.keepAliveAck) sendKeepAliveAck();
         break;
     case frames::OfflineFrameType::Disconnection:
-        finishWithError(QStringLiteral("Удалённая сторона разорвала соединение"));
+        finishWithError(tr("Удалённая сторона разорвала соединение"));
         break;
     default:
         qDebug("InboundConnection: ignored encrypted frame type %d", int(frame.type));
@@ -306,16 +306,16 @@ void InboundConnection::processPayloadTransfer(const frames::OfflineFrame &frame
     if (header.type == 1) { // BYTES
         if (header.totalSize < 0 || header.totalSize > kMaxFrameLength
             || (!m_bytesPayloadBuffers.contains(header.id) && m_bytesPayloadBuffers.size() >= 16)) {
-            finishWithError(QStringLiteral("Слишком большой BYTES-payload"));
+            finishWithError(tr("Слишком большой BYTES-payload"));
             return;
         }
         QByteArray &buffer = m_bytesPayloadBuffers[header.id];
         if (chunk.offset != buffer.size()) {
-            finishWithError(QStringLiteral("Неверное смещение BYTES-payload"));
+            finishWithError(tr("Неверное смещение BYTES-payload"));
             return;
         }
         if (chunk.body.size() > header.totalSize - buffer.size()) {
-            finishWithError(QStringLiteral("Размер BYTES-payload превышен"));
+            finishWithError(tr("Размер BYTES-payload превышен"));
             return;
         }
         if (chunk.hasBody)
@@ -323,14 +323,14 @@ void InboundConnection::processPayloadTransfer(const frames::OfflineFrame &frame
         if ((chunk.flags & 1) == 0)
             return;
         if (buffer.size() != header.totalSize) {
-            finishWithError(QStringLiteral("Неполный BYTES-payload"));
+            finishWithError(tr("Неполный BYTES-payload"));
             return;
         }
         const QByteArray payload = buffer;
         m_bytesPayloadBuffers.remove(header.id);
         if (header.id == m_textPayloadId && m_state == State::ReceivingFiles) {
             if (payload.size() != m_pendingRequest.totalBytes) {
-                finishWithError(QStringLiteral("Неверный размер текста"));
+                finishWithError(tr("Неверный размер текста"));
                 return;
             }
             emit textReceived(this, QString::fromUtf8(payload), m_pendingRequest.textType);
@@ -347,7 +347,7 @@ void InboundConnection::processSharingFrame(const QByteArray &data)
 {
     frames::SharingFrame frame;
     if (!frames::parseSharingFrame(data, frame)) {
-        finishWithError(QStringLiteral("Некорректный sharing frame"));
+        finishWithError(tr("Некорректный sharing frame"));
         return;
     }
     // Android sends informational progress and response frames in addition to
@@ -356,13 +356,13 @@ void InboundConnection::processSharingFrame(const QByteArray &data)
         && (frame.type == frames::SharingFrameType::ProgressUpdate
             || frame.type == frames::SharingFrameType::Response)) return;
     if (frame.type == frames::SharingFrameType::Cancel) {
-        finishWithError(QStringLiteral("Отменено отправителем"));
+        finishWithError(tr("Отменено отправителем"));
         return;
     }
     switch (m_state) {
     case State::SentConnectionResponse:
         if (frame.type != frames::SharingFrameType::PairedKeyEncryption) {
-            finishWithError(QStringLiteral("Ожидался PAIRED_KEY_ENCRYPTION"));
+            finishWithError(tr("Ожидался PAIRED_KEY_ENCRYPTION"));
             return;
         }
         sendSharingFrame(frames::buildPairedKeyResultFrame());
@@ -370,14 +370,14 @@ void InboundConnection::processSharingFrame(const QByteArray &data)
         break;
     case State::SentPairedKeyResult:
         if (frame.type != frames::SharingFrameType::PairedKeyResult) {
-            finishWithError(QStringLiteral("Ожидался PAIRED_KEY_RESULT"));
+            finishWithError(tr("Ожидался PAIRED_KEY_RESULT"));
             return;
         }
         m_state = State::ReceivedPairedKeyResult;
         break;
     case State::ReceivedPairedKeyResult: {
         if (frame.type != frames::SharingFrameType::Introduction) {
-            finishWithError(QStringLiteral("Ожидался INTRODUCTION"));
+            finishWithError(tr("Ожидался INTRODUCTION"));
             return;
         }
         TransferRequest request;
@@ -388,13 +388,13 @@ void InboundConnection::processSharingFrame(const QByteArray &data)
         if (!frame.files.isEmpty() && frame.texts.isEmpty()) {
             QSet<qint64> ids;
             if (frame.files.size() > 1000) {
-                finishWithError(QStringLiteral("Слишком много файлов"));
+                finishWithError(tr("Слишком много файлов"));
                 return;
             }
             for (const frames::FileMeta &meta : frame.files) {
                 if (meta.size < 0 || meta.size > std::numeric_limits<qint64>::max() - request.totalBytes
                     || ids.contains(meta.payloadId) || meta.name.contains(QChar::Null)) {
-                    finishWithError(QStringLiteral("Недопустимые метаданные файлов"));
+                    finishWithError(tr("Недопустимые метаданные файлов"));
                     return;
                 }
                 ids.insert(meta.payloadId);
@@ -415,7 +415,7 @@ void InboundConnection::processSharingFrame(const QByteArray &data)
             request.totalBytes = meta.size;
         } else {
             sendSharingFrame(frames::buildSharingResponseFrame(4)); // UNSUPPORTED_ATTACHMENT_TYPE
-            finishWithError(QStringLiteral("Неподдерживаемый тип вложения"));
+            finishWithError(tr("Неподдерживаемый тип вложения"));
             return;
         }
         m_pendingRequest = request;
@@ -425,7 +425,7 @@ void InboundConnection::processSharingFrame(const QByteArray &data)
         m_consentTimer->setInterval(kConsentTimeoutMs);
         connect(m_consentTimer, &QTimer::timeout, this, [this] {
             sendSharingFrame(frames::buildSharingResponseFrame(5)); // TIMED_OUT
-            finishWithError(QStringLiteral("Истёк таймаут ожидания ответа пользователя"));
+            finishWithError(tr("Истёк таймаут ожидания ответа пользователя"));
         });
         m_consentTimer->start();
         emit transferRequested(this, request);
@@ -440,28 +440,28 @@ void InboundConnection::processSharingFrame(const QByteArray &data)
 void InboundConnection::processFileChunk(const frames::OfflineFrame &frame)
 {
     if (m_state != State::ReceivingFiles) {
-        finishWithError(QStringLiteral("Неожиданный файловый чанк"));
+        finishWithError(tr("Неожиданный файловый чанк"));
         return;
     }
     const qint64 id = frame.payloadHeader.id;
     auto it = m_files.find(id);
     if (it == m_files.end()) {
-        finishWithError(QStringLiteral("Неизвестный payload ID %1").arg(id));
+        finishWithError(tr("Неизвестный payload ID %1").arg(id));
         return;
     }
     ReceivingFile &file = it.value();
     const frames::PayloadChunk &chunk = frame.payloadChunk;
     if (chunk.offset != file.bytesTransferred) {
-        finishWithError(QStringLiteral("Неверное смещение в файле"));
+        finishWithError(tr("Неверное смещение в файле"));
         return;
     }
     if (file.bytesTransferred + chunk.body.size() > file.meta.size) {
-        finishWithError(QStringLiteral("Размер файла превышен"));
+        finishWithError(tr("Размер файла превышен"));
         return;
     }
     if (chunk.hasBody && !chunk.body.isEmpty()) {
         if (file.file->write(chunk.body) != chunk.body.size()) {
-            finishWithError(QStringLiteral("Ошибка записи на диск"));
+            finishWithError(tr("Ошибка записи на диск"));
             return;
         }
         file.bytesTransferred += chunk.body.size();
@@ -471,11 +471,11 @@ void InboundConnection::processFileChunk(const frames::OfflineFrame &frame)
     }
     if (chunk.flags & 1) {
         if (file.bytesTransferred != file.meta.size) {
-            finishWithError(QStringLiteral("Файл получен не полностью"));
+            finishWithError(tr("Файл получен не полностью"));
             return;
         }
         if (!file.file->flush()) {
-            finishWithError(QStringLiteral("Не удалось сохранить файл"));
+            finishWithError(tr("Не удалось сохранить файл"));
             return;
         }
         file.file->close();
@@ -487,7 +487,7 @@ void InboundConnection::processFileChunk(const frames::OfflineFrame &frame)
             if (!QFileInfo::exists(file.destPath)) break;
         }
         if (!renamed) {
-            finishWithError(QStringLiteral("Не удалось сохранить файл %1").arg(file.meta.name));
+            finishWithError(tr("Не удалось сохранить файл %1").arg(file.meta.name));
             return;
         }
         m_savedFiles.append(file.destPath);
@@ -515,13 +515,13 @@ void InboundConnection::acceptTransfer(const QString &destDir)
         return;
     }
     if (!QDir().mkpath(destDir)) {
-        finishWithError(QStringLiteral("Не удалось создать папку загрузок"));
+        finishWithError(tr("Не удалось создать папку загрузок"));
         return;
     }
     const QStorageInfo storage(destDir);
     if (storage.isValid() && storage.bytesAvailable() < m_pendingRequest.totalBytes) {
         sendSharingFrame(frames::buildSharingResponseFrame(3));
-        finishWithError(QStringLiteral("Недостаточно места на диске"));
+        finishWithError(tr("Недостаточно места на диске"));
         return;
     }
     for (const IncomingFile &meta : m_pendingRequest.files) {
@@ -533,7 +533,7 @@ void InboundConnection::acceptTransfer(const QString &destDir)
         file.file = temporary;
         if (!temporary->open()) {
             delete temporary;
-            finishWithError(QStringLiteral("Не удалось создать файл %1").arg(file.destPath));
+            finishWithError(tr("Не удалось создать файл %1").arg(file.destPath));
             return;
         }
         m_files.insert(meta.payloadId, file);
@@ -547,12 +547,12 @@ void InboundConnection::rejectTransfer()
     if (m_state != State::WaitingForUserConsent)
         return;
     sendSharingFrame(frames::buildSharingResponseFrame(2)); // REJECT
-    finishWithError(QStringLiteral("Отклонено пользователем"));
+    finishWithError(tr("Отклонено пользователем"));
 }
 
 void InboundConnection::cancelTransfer()
 {
-    finishWithError(QStringLiteral("Передача отменена"));
+    finishWithError(tr("Передача отменена"));
 }
 
 void InboundConnection::sendRawFrame(const QByteArray &frame)

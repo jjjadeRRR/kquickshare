@@ -18,7 +18,7 @@ jobs:
       - name: Install build and test dependencies
         run: >-
           pacman -Syu --noconfirm --needed git cmake ninja
-          qt6-base qt6-svg qt6-declarative openssl
+          qt6-base qt6-svg qt6-declarative qt6-tools openssl
           knotifications kstatusnotifieritem prison ki18n
           plasma-workspace dbus python-cryptography
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -32,3 +32,7 @@ jobs:
         run: |
           python tests/fake_sender.py --binary build/kquickshare-cli -v
           python tests/fake_receiver.py --binary build/kquickshare-send -v
+      - name: Verify the one-command installer
+        run: |
+          ./install.sh --prefix "$RUNNER_TEMP/kquickshare-install" --no-start --no-deps
+          QT_QPA_PLATFORM=offscreen "$RUNNER_TEMP/kquickshare-install/bin/kquickshare" --version

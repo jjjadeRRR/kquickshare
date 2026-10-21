@@ -1,6 +1,6 @@
 pkgbase = kquickshare
 	pkgdesc = Send and receive Android Quick Share files and text on KDE Plasma
-	pkgver = 0.2.0
+	pkgver = 0.3.0
 	pkgrel = 1
 	url = https://github.com/jjjadeRRR/kquickshare
 	arch = x86_64
@@ -9,6 +9,7 @@ pkgbase = kquickshare
 	license = GPL-2.0-or-later
 	makedepends = cmake
 	makedepends = ninja
+	makedepends = qt6-tools
 	depends = qt6-svg
 	depends = qt6-base
 	depends = openssl
@@ -16,7 +17,7 @@ pkgbase = kquickshare
 	depends = kstatusnotifieritem
 	depends = prison
 	optdepends = plasma-workspace: optional clipboard-history integration for Plasma 6.8
-	source = https://github.com/jjjadeRRR/kquickshare/releases/download/v0.2.0/kquickshare-0.2.0.tar.gz
-	sha256sums = 13f0bcbcdc6044d7074b5d8a5c8decc547ce7c16e975096dae9ab4c98a0bcd61
+	source = https://github.com/jjjadeRRR/kquickshare/releases/download/v0.3.0/kquickshare-0.3.0.tar.gz
+	sha256sums = cb58436c5e0b5e092af555495a308a680cc7e8d6695aafe5daf1687a36c8ae4a
 
 pkgname = kquickshare

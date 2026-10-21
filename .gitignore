@@ -12,3 +12,5 @@ src/*.tar.zst
 packaging/kquickshare-*.tar.gz
 
 /packaging/src/
+
+/build-install/

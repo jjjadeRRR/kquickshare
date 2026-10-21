@@ -1,5 +1,8 @@
 #include "receiver.h"
+#include "localization.h"
+#include <QTabWidget>
 #include "senddialog.h"
+#include "outboundconnection.h"
 #include <QApplication>
 #include <QCheckBox>
 #include <QDBusConnection>
@@ -78,6 +81,40 @@ QByteArray receiverAnnouncement(quint16 port) {
 class GuiTests : public QObject {
     Q_OBJECT
   private slots:
+    void localizedInterface_data() {
+        QTest::addColumn<QStringList>("languages");
+        QTest::addColumn<QString>("tab");
+        QTest::addColumn<QString>("sendButton");
+        QTest::newRow("russian") << QStringList{"ru-RU"} << QString("Передачи") << QString("Отправить файлы…");
+        QTest::newRow("english") << QStringList{"en-US"} << QString("Transfers") << QString("Send files…");
+        QTest::newRow("fallback") << QStringList{"fr-FR"} << QString("Transfers") << QString("Send files…");
+        QTest::newRow("preference") << QStringList{"en-US", "ru-RU"} << QString("Transfers") << QString("Send files…");
+    }
+    void localizedInterface() {
+        QFETCH(QStringList, languages);
+        QFETCH(QString, tab);
+        QFETCH(QString, sendButton);
+        QTranslator translator;
+        QVERIFY(localization::load(translator, languages));
+        QTemporaryDir downloads;
+        Receiver receiver(downloads.path());
+        auto *tabs = receiver.findChild<QTabWidget *>();
+        QVERIFY(tabs);
+        QCOMPARE(tabs->tabText(0), tab);
+        bool found = false;
+        for (auto *button : receiver.findChildren<QPushButton *>()) found |= button->text() == sendButton;
+        QVERIFY(found);
+        SendDialog dialog({}, "Localization fixture");
+        QCOMPARE(dialog.windowTitle(), localization::language(languages) == "ru"
+                     ? QString("Отправить через KQuickShare") : QString("Send with KQuickShare"));
+        QString error;
+        OutboundConnection connection;
+        QVERIFY(!connection.setText({}, error));
+        QCOMPARE(error, localization::language(languages) == "ru"
+                     ? QString("Нужен текст размером до 5 МиБ") : QString("Text must be at most 5 MiB"));
+        receiver.show();
+        receiver.grab().save(QString(SOURCE_DIR) + "/build/locale-" + localization::language(languages) + ".png");
+    }
     void trustedRoundTrip() {
         QTemporaryDir downloads;
         QVERIFY(downloads.isValid());

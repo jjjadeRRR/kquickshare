@@ -36,7 +36,7 @@ bool DeviceDiscovery::start() {
         joined |= m_socket.joinMulticastGroup(QHostAddress("224.0.0.251"), iface);
     }
     if (!joined) {
-        emit errorOccurred("Нет доступной локальной сети");
+        emit errorOccurred(tr("Нет доступной локальной сети"));
         stop();
         return false;
     }

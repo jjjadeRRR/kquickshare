@@ -1,4 +1,4 @@
 [D-BUS Service]
 Name=org.kde.kquickshare
-Exec=@CMAKE_INSTALL_PREFIX@/bin/kquickshare --daemon --background
+Exec="@CMAKE_INSTALL_PREFIX@/bin/kquickshare" --daemon --background
 SystemdService=org.kde.kquickshare.service
