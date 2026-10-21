@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=KQuickShare
+GenericName=Quick Share File Transfer
+GenericName[ru]=Передача файлов Quick Share
+Comment=Send and receive Android files and text with Quick Share
+Comment[ru]=Отправка и приём файлов и текста Android через Quick Share
+Exec=kquickshare
+Icon=org.kde.kquickshare
+Terminal=false
+Categories=Network;FileTransfer;Qt;KDE;
+StartupNotify=false

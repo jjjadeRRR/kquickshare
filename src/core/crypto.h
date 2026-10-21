@@ -29,6 +29,8 @@ QByteArray hkdfSha256(const QByteArray &ikm, const QByteArray &salt, const QByte
 QByteArray aes256CbcEncrypt(const QByteArray &key, const QByteArray &iv, const QByteArray &plain);
 QByteArray aes256CbcDecrypt(const QByteArray &key, const QByteArray &iv, const QByteArray &cipher);
 
+QByteArray signP256(EVP_PKEY *key, const QByteArray &message);
+QByteArray aes128GcmDecrypt(const QByteArray &key, const QByteArray &combined, const QByteArray &aad);
 QByteArray randomBytes(int n);
 
 // Converts a 32-byte big-endian coordinate to protobuf "signed bytes"

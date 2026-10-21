@@ -8,8 +8,13 @@ QByteArray EndpointInfo::serialize(const QString &name, DeviceType type)
     out.append(char(int(type) << 1));
     out.append(crypto::randomBytes(16));
     QByteArray nameUtf8 = name.toUtf8();
-    if (nameUtf8.size() > 255)
-        nameUtf8 = nameUtf8.left(255);
+    // TXT strings are limited to 255 bytes including "n=" and base64.
+    // Keep endpoint info <= 189 bytes and preserve complete UTF-8 codepoints.
+    if (nameUtf8.size() > 168) {
+        int end = 168;
+        while (end > 0 && (quint8(nameUtf8[end]) & 0xc0) == 0x80) --end;
+        nameUtf8.truncate(end);
+    }
     out.append(char(nameUtf8.size()));
     out.append(nameUtf8);
     return out;
@@ -17,13 +22,14 @@ QByteArray EndpointInfo::serialize(const QString &name, DeviceType type)
 
 bool EndpointInfo::parse(const QByteArray &data, EndpointInfo &out)
 {
-    if (data.size() <= 17)
+    if (data.size() < 17)
         return false;
     const uint8_t b0 = uint8_t(data[0]);
     const bool hasName = (b0 & 0x10) == 0; // visibility bit: 0 = visible
-    out.deviceType = DeviceType((b0 & 7) >> 1);
+    out.deviceType = DeviceType((b0 >> 1) & 7);
     int offset = 17;
     if (hasName) {
+        if (data.size() < 18) return false;
         const int nameLen = uint8_t(data[offset]);
         if (data.size() < offset + 1 + nameLen)
             return false;

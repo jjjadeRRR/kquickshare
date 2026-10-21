@@ -47,10 +47,12 @@ struct OfflineFrame {
     PayloadChunk payloadChunk;
     bool hasPayloadChunk = false;
     bool keepAliveAck = false;
+    int connectionResponse = 0;
 };
 
 bool parseOfflineFrame(const QByteArray &data, OfflineFrame &out);
 
+QByteArray buildPayloadTransfer(const PayloadHeader &header, const PayloadChunk &chunk);
 QByteArray buildConnectionResponseAccept();
 QByteArray buildKeepAliveOfflineFrame(bool ack);
 QByteArray buildDisconnectionOfflineFrame();
@@ -126,11 +128,12 @@ struct SharingFrame {
     QVector<FileMeta> files;          // Introduction
     QVector<TextMeta> texts;          // Introduction
     bool hasPairedKeyEncryption = false;
+    int responseStatus = 0;
 };
 
 bool parseSharingFrame(const QByteArray &data, SharingFrame &out);
 
-QByteArray buildPairedKeyEncryptionFrame();
+QByteArray buildPairedKeyEncryptionFrame(const QByteArray &qrSignature = {});
 QByteArray buildPairedKeyResultFrame(); // status = UNABLE
 // status: 1 = ACCEPT, 2 = REJECT, 3 = NOT_ENOUGH_SPACE, 4 = UNSUPPORTED_ATTACHMENT_TYPE, 5 = TIMED_OUT
 QByteArray buildSharingResponseFrame(int status);

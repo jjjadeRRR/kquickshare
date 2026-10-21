@@ -1,6 +1,7 @@
 #include "crypto.h"
 
 #include <openssl/core_names.h>
+#include <openssl/ecdsa.h>
 #include <openssl/hmac.h>
 #include <openssl/kdf.h>
 #include <openssl/rand.h>
@@ -37,10 +38,15 @@ QByteArray ecdhSharedX(EVP_PKEY *ourKey, QByteArray peerX, QByteArray peerY)
 {
     // Take last 32 bytes (peer may send 33-byte signed two's complement);
     // left-pad with zeros if shorter.
+    auto validCoord = [](const QByteArray &v) {
+        return !v.isEmpty() && v.size() <= 33 && !(quint8(v[0]) & 0x80)
+            && (v.size() != 33 || v[0] == '\0');
+    };
+    if (!validCoord(peerX) || !validCoord(peerY)) return {};
     auto norm32 = [](QByteArray v) {
         if (v.size() > 32)
             return v.right(32);
-        return v.leftJustified(32, '\0', true).rightJustified(32, '\0');
+        return v.rightJustified(32, '\0');
     };
     peerX = norm32(std::move(peerX));
     peerY = norm32(std::move(peerY));
@@ -167,6 +173,42 @@ QByteArray aes256CbcDecrypt(const QByteArray &key, const QByteArray &iv, const Q
         return {}; // bad padding / corrupt data
     out.resize(len1 + len2);
     return out;
+}
+
+QByteArray signP256(EVP_PKEY *key, const QByteArray &message)
+{
+    auto *ctx = EVP_MD_CTX_new(); if (!ctx || !key) { EVP_MD_CTX_free(ctx); return {}; }
+    size_t size = 0;
+    bool ok = EVP_DigestSignInit(ctx, nullptr, EVP_sha256(), nullptr, key) == 1
+        && EVP_DigestSign(ctx, nullptr, &size, reinterpret_cast<const unsigned char *>(message.constData()), message.size()) == 1;
+    QByteArray der(qsizetype(size), '\0');
+    ok = ok && EVP_DigestSign(ctx, reinterpret_cast<unsigned char *>(der.data()), &size, reinterpret_cast<const unsigned char *>(message.constData()), message.size()) == 1;
+    EVP_MD_CTX_free(ctx); if (!ok) return {};
+    const auto *ptr = reinterpret_cast<const unsigned char *>(der.constData());
+    ECDSA_SIG *sig = d2i_ECDSA_SIG(nullptr, &ptr, long(size)); if (!sig) return {};
+    QByteArray raw(64, '\0');
+    ok = BN_bn2binpad(ECDSA_SIG_get0_r(sig), reinterpret_cast<unsigned char *>(raw.data()), 32) == 32
+        && BN_bn2binpad(ECDSA_SIG_get0_s(sig), reinterpret_cast<unsigned char *>(raw.data())+32, 32) == 32;
+    ECDSA_SIG_free(sig); return ok ? raw : QByteArray();
+}
+
+QByteArray aes128GcmDecrypt(const QByteArray &key, const QByteArray &combined, const QByteArray &aad)
+{
+    if (key.size() != 16 || combined.size() < 28) return {};
+    auto *ctx = EVP_CIPHER_CTX_new(); if (!ctx) return {};
+    const QByteArray ciphertext = combined.mid(12, combined.size()-28);
+    QByteArray output(ciphertext.size()+16, '\0');
+    QByteArray tag = combined.right(16); int length = 0, count = 0;
+    const bool ok = EVP_DecryptInit_ex(ctx, EVP_aes_128_gcm(), nullptr, nullptr, nullptr) == 1
+        && EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, 12, nullptr) == 1
+        && EVP_DecryptInit_ex(ctx, nullptr, nullptr, reinterpret_cast<const unsigned char *>(key.constData()), reinterpret_cast<const unsigned char *>(combined.constData())) == 1
+        && EVP_DecryptUpdate(ctx, nullptr, &length, reinterpret_cast<const unsigned char *>(aad.constData()), int(aad.size())) == 1
+        && EVP_DecryptUpdate(ctx, reinterpret_cast<unsigned char *>(output.data()), &count, reinterpret_cast<const unsigned char *>(ciphertext.constData()), int(ciphertext.size())) == 1
+        && EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, 16, tag.data()) == 1
+        && EVP_DecryptFinal_ex(ctx, reinterpret_cast<unsigned char *>(output.data())+count, &length) == 1;
+    EVP_CIPHER_CTX_free(ctx);
+    if (!ok) return {};
+    output.resize(count+length); return output;
 }
 
 QByteArray randomBytes(int n)

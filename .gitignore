@@ -8,3 +8,7 @@ __pycache__/
 pkg/
 src/*.tar.zst
 *.pkg.tar.zst
+
+packaging/kquickshare-*.tar.gz
+
+/packaging/src/

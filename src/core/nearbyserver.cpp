@@ -6,6 +6,7 @@
 #include <QHostInfo>
 #include <QRandomGenerator>
 #include <QTcpServer>
+#include <QTcpSocket>
 
 namespace {
 QByteArray generateEndpointId()
@@ -80,6 +81,8 @@ bool NearbyServer::start(const QString &deviceName, DeviceType deviceType)
 
 void NearbyServer::stop()
 {
+    const auto connections = findChildren<InboundConnection *>(QString(), Qt::FindDirectChildrenOnly);
+    for (auto *connection : connections) connection->cancelTransfer();
     if (m_mdns) {
         m_mdns->stop();
         m_mdns->deleteLater();
@@ -97,10 +100,21 @@ bool NearbyServer::isRunning() const
     return m_tcpServer && m_tcpServer->isListening();
 }
 
+bool NearbyServer::hasActiveConnections() const
+{
+    return !findChildren<InboundConnection *>(QString(), Qt::FindDirectChildrenOnly).isEmpty();
+}
+
 void NearbyServer::onNewConnection()
 {
     while (m_tcpServer->hasPendingConnections()) {
         QTcpSocket *socket = m_tcpServer->nextPendingConnection();
+        if (findChildren<InboundConnection *>(QString(), Qt::FindDirectChildrenOnly).size() >= 8) {
+            socket->abort();
+            socket->deleteLater();
+            continue;
+        }
+        qInfo("Quick Share inbound connecting: peer=%s", qPrintable(socket->peerAddress().toString()));
         auto *conn = new InboundConnection(socket, this);
         connect(conn, &InboundConnection::transferRequested, this, &NearbyServer::transferRequested);
         connect(conn, &InboundConnection::transferProgress, this, &NearbyServer::transferProgress);

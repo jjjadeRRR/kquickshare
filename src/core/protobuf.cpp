@@ -19,6 +19,7 @@ static bool readVarint(const QByteArray &data, qsizetype &pos, uint64_t &value)
     int shift = 0;
     while (pos < data.size() && shift < 64) {
         const uint8_t b = uint8_t(data[pos++]);
+        if (shift == 63 && b > 1) return false;
         value |= uint64_t(b & 0x7f) << shift;
         if (!(b & 0x80))
             return true;
@@ -47,7 +48,7 @@ bool parseMessage(const QByteArray &data, QVector<Field> &out)
         case WT_Fixed64:
             if (pos + 8 > data.size())
                 return false;
-            f.varint = qFromBigEndian<quint64>(reinterpret_cast<const uchar *>(data.constData() + pos));
+            f.varint = qFromLittleEndian<quint64>(reinterpret_cast<const uchar *>(data.constData() + pos));
             pos += 8;
             break;
         case WT_LengthDelimited: {
@@ -63,7 +64,7 @@ bool parseMessage(const QByteArray &data, QVector<Field> &out)
         case WT_Fixed32:
             if (pos + 4 > data.size())
                 return false;
-            f.varint = qFromBigEndian<quint32>(reinterpret_cast<const uchar *>(data.constData() + pos));
+            f.varint = qFromLittleEndian<quint32>(reinterpret_cast<const uchar *>(data.constData() + pos));
             pos += 4;
             break;
         default:

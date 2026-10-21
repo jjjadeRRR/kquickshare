@@ -1,0 +1,25 @@
+[Global]
+IconName=org.kde.kquickshare
+Name=KQuickShare
+Comment=Quick Share file transfers
+DesktopEntry=org.kde.kquickshare
+
+[Event/request]
+Name=Incoming transfer
+Comment=Confirm an incoming transfer
+Action=Popup
+
+[Event/receiving]
+Name=Receiving files
+Comment=Automatic reception from a trusted device
+Action=Popup
+
+[Event/complete]
+Name=Transfer completed
+Comment=Files have been received
+Action=Popup
+
+[Event/error]
+Name=Transfer failed
+Comment=Transfer or receiver error
+Action=Popup

@@ -25,7 +25,7 @@ public:
 private:
     void onReadyRead();
     void announce();
-    QByteArray buildResponse() const;
+    QByteArray buildResponse(quint32 ttl = 120) const;
     void sendResponse(const QHostAddress &to, quint16 port);
     static QString decodeName(const QByteArray &packet, int &pos, bool *ok);
     static void encodeName(QByteArray &out, const QString &name);

@@ -1,0 +1,17 @@
+[Unit]
+Description=KQuickShare background receiver
+PartOf=graphical-session.target
+After=graphical-session.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=dbus
+BusName=org.kde.kquickshare
+ExecStart=@CMAKE_INSTALL_PREFIX@/bin/kquickshare --daemon --background
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=10
+
+[Install]
+WantedBy=graphical-session.target

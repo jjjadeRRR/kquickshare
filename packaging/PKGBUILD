@@ -1,0 +1,24 @@
+pkgname=kquickshare
+pkgver=0.2.0
+pkgrel=1
+pkgdesc='Send and receive Android Quick Share files and text on KDE Plasma'
+arch=('x86_64' 'aarch64')
+url='https://github.com/jjjadeRRR/kquickshare'
+license=('GPL-3.0-or-later' 'GPL-2.0-or-later')
+depends=('qt6-svg' 'qt6-base' 'openssl' 'knotifications' 'kstatusnotifieritem' 'prison')
+makedepends=('cmake' 'ninja')
+optdepends=('plasma-workspace: optional clipboard-history integration for Plasma 6.8')
+source=("$url/releases/download/v$pkgver/$pkgname-$pkgver.tar.gz")
+sha256sums=('0407cc7febe7a174c1c4e8b4bafda574c5290175968b01c3443330ff92d5caa9')
+
+build() {
+    cmake -S "$srcdir/$pkgname-$pkgver" -B "$srcdir/build" -G Ninja \
+        -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+    cmake --build "$srcdir/build"
+}
+
+package() {
+    DESTDIR="$pkgdir" cmake --install "$srcdir/build"
+    install -Dm644 "$srcdir/$pkgname-$pkgver/NOTICE.md" "$pkgdir/usr/share/licenses/$pkgname/NOTICE.md"
+    install -Dm644 "$srcdir/$pkgname-$pkgver/integration/COPYING" "$pkgdir/usr/share/licenses/$pkgname/KDE-GPL-2.0-or-later.txt"
+}

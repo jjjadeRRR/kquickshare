@@ -5,6 +5,10 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QRandomGenerator>
+#include <QTemporaryFile>
+#include <QStorageInfo>
+#include <QSet>
+#include <limits>
 #include <QTcpSocket>
 #include <QTimer>
 
@@ -27,7 +31,7 @@ QString pinCodeFromAuthKey(const QByteArray &key)
 QString uniqueDestination(const QString &dir, const QString &fileName)
 {
     QString cleanName = QFileInfo(fileName).fileName(); // strip any path components
-    if (cleanName.isEmpty())
+    if (cleanName.isEmpty() || cleanName == "." || cleanName == "..")
         cleanName = QStringLiteral("unnamed");
     QString dest = QDir(dir).filePath(cleanName);
     if (!QFileInfo::exists(dest))
@@ -51,31 +55,55 @@ InboundConnection::InboundConnection(QTcpSocket *socket, QObject *parent)
 {
     m_socket->setParent(this);
     m_socket->setSocketOption(QAbstractSocket::LowDelayOption, 1);
+    m_socket->setReadBufferSize(kMaxFrameLength + 4);
+    m_idleTimer = new QTimer(this);
+    m_idleTimer->setInterval(180000);
+    connect(m_idleTimer, &QTimer::timeout, this, [this] {
+        finishWithError(QStringLiteral("Устройство не отвечает"));
+    });
+    m_idleTimer->start();
+    m_keepAliveTimer = new QTimer(this);
+    m_keepAliveTimer->setInterval(10000);
+    connect(m_keepAliveTimer, &QTimer::timeout, this, [this] {
+        if (m_encryptionDone && m_state != State::Done)
+            sendEncryptedOfflineFrame(frames::buildKeepAliveOfflineFrame(false));
+    });
+    m_keepAliveTimer->start();
     connect(m_socket, &QTcpSocket::readyRead, this, &InboundConnection::onReadyRead);
     connect(m_socket, &QTcpSocket::disconnected, this, [this] {
-        // Remote side closed the TCP connection before the protocol completed.
         if (m_state != State::Done) {
+            qWarning("Quick Share inbound disconnected: peer=%s state=%d",
+                     qPrintable(m_socket->peerAddress().toString()), int(m_state));
+            m_error = QStringLiteral("Соединение прервано");
             m_state = State::Done;
             cleanupFiles(true);
-            emit finished(this, m_savedFiles, QStringLiteral("Соединение прервано"));
         }
+        emit finished(this, m_savedFiles, m_error);
         deleteLater();
     });
+    // QTcpServer can hand us a socket whose readyRead was already emitted.
+    // Defer processing so the owner can connect the transfer signals first.
+    QTimer::singleShot(0, this, &InboundConnection::onReadyRead);
 }
 
 InboundConnection::~InboundConnection()
 {
-    cleanupFiles(false);
+    cleanupFiles(true);
     m_socket->close();
 }
 
 void InboundConnection::onReadyRead()
 {
+    if (m_state == State::Done) {
+        m_socket->readAll();
+        return;
+    }
+    m_idleTimer->start();
     m_readBuffer.append(m_socket->readAll());
     while (m_readBuffer.size() >= 4) {
         const auto *p = reinterpret_cast<const uchar *>(m_readBuffer.constData());
         const quint32 frameLength = quint32(p[0]) << 24 | quint32(p[1]) << 16 | quint32(p[2]) << 8 | quint32(p[3]);
-        if (frameLength > kMaxFrameLength) {
+        if (frameLength == 0 || frameLength > kMaxFrameLength) {
             finishWithError(QStringLiteral("Слишком большой кадр"));
             return;
         }
@@ -152,7 +180,7 @@ void InboundConnection::processUkey2ClientInit(const QByteArray &frameData)
         finishWithError(QStringLiteral("UKEY2: неверный random"));
         return;
     }
-    if (clientInit.p256Commitment.isEmpty()) {
+    if (clientInit.p256Commitment.size() != 64) {
         sendRawFrame(frames::buildUkey2Alert(102)); // BAD_HANDSHAKE_CIPHER
         finishWithError(QStringLiteral("UKEY2: нет коммитмента P256_SHA512"));
         return;
@@ -171,7 +199,10 @@ void InboundConnection::processUkey2ClientInit(const QByteArray &frameData)
         return;
     }
     QByteArray x, y;
-    crypto::p256PublicXY(m_keyPair.get(), x, y);
+    if (!crypto::p256PublicXY(m_keyPair.get(), x, y)) {
+        finishWithError(QStringLiteral("Не удалось получить публичный ключ"));
+        return;
+    }
     const QByteArray serverInit = frames::buildUkey2ServerInit(crypto::toSignedBytes(x), crypto::toSignedBytes(y));
     m_serverInitRaw = serverInit;
     sendRawFrame(serverInit);
@@ -196,7 +227,12 @@ void InboundConnection::processUkey2ClientFinish(const QByteArray &frameData)
     }
 
     // Key derivation (docs/protocol.md)
-    const QByteArray dhs = crypto::sha256(crypto::ecdhSharedX(m_keyPair.get(), peerX, peerY));
+    const QByteArray shared = crypto::ecdhSharedX(m_keyPair.get(), peerX, peerY);
+    if (shared.size() != 32) {
+        finishWithError(QStringLiteral("UKEY2: недопустимый ключ устройства"));
+        return;
+    }
+    const QByteArray dhs = crypto::sha256(shared);
     const QByteArray ukeyInfo = m_clientInitRaw + m_serverInitRaw;
     const QByteArray authString = crypto::hkdfSha256(dhs, "UKEY2 v1 auth", ukeyInfo, 32);
     const QByteArray nextSecret = crypto::hkdfSha256(dhs, "UKEY2 v1 next", ukeyInfo, 32);
@@ -219,7 +255,8 @@ void InboundConnection::processConnectionResponse(const QByteArray &frameData)
 {
     frames::OfflineFrame frame;
     if (!frames::parseOfflineFrame(frameData, frame)
-        || frame.type != frames::OfflineFrameType::ConnectionResponse) {
+        || frame.type != frames::OfflineFrameType::ConnectionResponse
+        || frame.connectionResponse != 1) {
         finishWithError(QStringLiteral("Ожидался CONNECTION_RESPONSE"));
         return;
     }
@@ -248,13 +285,13 @@ void InboundConnection::processSecureMessage(const QByteArray &frameData)
         processPayloadTransfer(frame);
         break;
     case frames::OfflineFrameType::KeepAlive:
-        sendKeepAliveAck();
+        if (!frame.keepAliveAck) sendKeepAliveAck();
         break;
     case frames::OfflineFrameType::Disconnection:
         finishWithError(QStringLiteral("Удалённая сторона разорвала соединение"));
         break;
     default:
-        qWarning("InboundConnection: unhandled encrypted frame type %d", int(frame.type));
+        qDebug("InboundConnection: ignored encrypted frame type %d", int(frame.type));
         break;
     }
 }
@@ -267,7 +304,8 @@ void InboundConnection::processPayloadTransfer(const frames::OfflineFrame &frame
         return;
 
     if (header.type == 1) { // BYTES
-        if (header.totalSize > kMaxFrameLength) {
+        if (header.totalSize < 0 || header.totalSize > kMaxFrameLength
+            || (!m_bytesPayloadBuffers.contains(header.id) && m_bytesPayloadBuffers.size() >= 16)) {
             finishWithError(QStringLiteral("Слишком большой BYTES-payload"));
             return;
         }
@@ -276,18 +314,27 @@ void InboundConnection::processPayloadTransfer(const frames::OfflineFrame &frame
             finishWithError(QStringLiteral("Неверное смещение BYTES-payload"));
             return;
         }
+        if (chunk.body.size() > header.totalSize - buffer.size()) {
+            finishWithError(QStringLiteral("Размер BYTES-payload превышен"));
+            return;
+        }
         if (chunk.hasBody)
             buffer.append(chunk.body);
         if ((chunk.flags & 1) == 0)
             return;
+        if (buffer.size() != header.totalSize) {
+            finishWithError(QStringLiteral("Неполный BYTES-payload"));
+            return;
+        }
         const QByteArray payload = buffer;
         m_bytesPayloadBuffers.remove(header.id);
         if (header.id == m_textPayloadId && m_state == State::ReceivingFiles) {
-            m_state = State::Done;
+            if (payload.size() != m_pendingRequest.totalBytes) {
+                finishWithError(QStringLiteral("Неверный размер текста"));
+                return;
+            }
             emit textReceived(this, QString::fromUtf8(payload), m_pendingRequest.textType);
-            sendDisconnectionAndClose();
-            emit finished(this, {}, {});
-            deleteLater();
+            finishTransfer();
             return;
         }
         processSharingFrame(payload);
@@ -303,6 +350,11 @@ void InboundConnection::processSharingFrame(const QByteArray &data)
         finishWithError(QStringLiteral("Некорректный sharing frame"));
         return;
     }
+    // Android sends informational progress and response frames in addition to
+    // the negotiated transfer. They do not change receiver consent or state.
+    if ((m_state == State::WaitingForUserConsent || m_state == State::ReceivingFiles)
+        && (frame.type == frames::SharingFrameType::ProgressUpdate
+            || frame.type == frames::SharingFrameType::Response)) return;
     if (frame.type == frames::SharingFrameType::Cancel) {
         finishWithError(QStringLiteral("Отменено отправителем"));
         return;
@@ -330,10 +382,22 @@ void InboundConnection::processSharingFrame(const QByteArray &data)
         }
         TransferRequest request;
         request.deviceName = m_deviceName;
+        request.peerAddress = m_socket->peerAddress().toString();
         request.deviceType = m_deviceType;
         request.pinCode = m_pinCode;
         if (!frame.files.isEmpty() && frame.texts.isEmpty()) {
+            QSet<qint64> ids;
+            if (frame.files.size() > 1000) {
+                finishWithError(QStringLiteral("Слишком много файлов"));
+                return;
+            }
             for (const frames::FileMeta &meta : frame.files) {
+                if (meta.size < 0 || meta.size > std::numeric_limits<qint64>::max() - request.totalBytes
+                    || ids.contains(meta.payloadId) || meta.name.contains(QChar::Null)) {
+                    finishWithError(QStringLiteral("Недопустимые метаданные файлов"));
+                    return;
+                }
+                ids.insert(meta.payloadId);
                 IncomingFile file;
                 file.name = meta.name;
                 file.mimeType = meta.mimeType;
@@ -342,7 +406,8 @@ void InboundConnection::processSharingFrame(const QByteArray &data)
                 request.files.append(file);
                 request.totalBytes += meta.size;
             }
-        } else if (frame.texts.size() == 1) {
+        } else if (frame.texts.size() == 1 && frame.files.isEmpty()
+                   && frame.texts.first().size >= 0 && frame.texts.first().size <= kMaxFrameLength) {
             const frames::TextMeta &meta = frame.texts.first();
             request.textTitle = meta.title;
             request.textType = meta.type;
@@ -400,16 +465,36 @@ void InboundConnection::processFileChunk(const frames::OfflineFrame &frame)
             return;
         }
         file.bytesTransferred += chunk.body.size();
+        m_receivedBytes += chunk.body.size();
+        emit overallProgress(this, m_receivedBytes, m_pendingRequest.totalBytes);
         emit transferProgress(this, file.meta.name, file.bytesTransferred, file.meta.size);
-    } else if (chunk.flags & 1) {
+    }
+    if (chunk.flags & 1) {
+        if (file.bytesTransferred != file.meta.size) {
+            finishWithError(QStringLiteral("Файл получен не полностью"));
+            return;
+        }
+        if (!file.file->flush()) {
+            finishWithError(QStringLiteral("Не удалось сохранить файл"));
+            return;
+        }
         file.file->close();
+        // Publish only complete files, without ever replacing an existing path.
+        bool renamed = false;
+        for (int attempt = 0; attempt < 100; ++attempt) {
+            file.destPath = uniqueDestination(QFileInfo(file.destPath).absolutePath(), file.meta.name);
+            if (file.file->rename(file.destPath)) { renamed = true; break; }
+            if (!QFileInfo::exists(file.destPath)) break;
+        }
+        if (!renamed) {
+            finishWithError(QStringLiteral("Не удалось сохранить файл %1").arg(file.meta.name));
+            return;
+        }
         m_savedFiles.append(file.destPath);
+        delete file.file;
         m_files.erase(it);
         if (m_files.isEmpty()) {
-            m_state = State::Done;
-            sendDisconnectionAndClose();
-            emit finished(this, m_savedFiles, {});
-            deleteLater();
+            finishTransfer();
         }
     }
 }
@@ -429,13 +514,25 @@ void InboundConnection::acceptTransfer(const QString &destDir)
         m_state = State::ReceivingFiles;
         return;
     }
-    QDir().mkpath(destDir);
+    if (!QDir().mkpath(destDir)) {
+        finishWithError(QStringLiteral("Не удалось создать папку загрузок"));
+        return;
+    }
+    const QStorageInfo storage(destDir);
+    if (storage.isValid() && storage.bytesAvailable() < m_pendingRequest.totalBytes) {
+        sendSharingFrame(frames::buildSharingResponseFrame(3));
+        finishWithError(QStringLiteral("Недостаточно места на диске"));
+        return;
+    }
     for (const IncomingFile &meta : m_pendingRequest.files) {
         ReceivingFile file;
         file.meta = meta;
         file.destPath = uniqueDestination(destDir, meta.name);
-        file.file = new QFile(file.destPath); // deleted in cleanupFiles()
-        if (!file.file->open(QIODevice::WriteOnly)) {
+        auto *temporary = new QTemporaryFile(QDir(destDir).filePath(QStringLiteral(".kquickshare-XXXXXX.part")));
+        temporary->setAutoRemove(false);
+        file.file = temporary;
+        if (!temporary->open()) {
+            delete temporary;
             finishWithError(QStringLiteral("Не удалось создать файл %1").arg(file.destPath));
             return;
         }
@@ -451,6 +548,11 @@ void InboundConnection::rejectTransfer()
         return;
     sendSharingFrame(frames::buildSharingResponseFrame(2)); // REJECT
     finishWithError(QStringLiteral("Отклонено пользователем"));
+}
+
+void InboundConnection::cancelTransfer()
+{
+    finishWithError(QStringLiteral("Передача отменена"));
 }
 
 void InboundConnection::sendRawFrame(const QByteArray &frame)
@@ -500,17 +602,32 @@ void InboundConnection::sendDisconnectionAndClose()
 
 void InboundConnection::finishWithError(const QString &error)
 {
+    finishTransfer(error);
+}
+
+void InboundConnection::finishTransfer(const QString &error)
+{
     if (m_state == State::Done)
         return;
+    if (!error.isEmpty())
+        qWarning("Quick Share inbound error: peer=%s state=%d error=%s",
+                 qPrintable(m_socket->peerAddress().toString()), int(m_state), qPrintable(error));
     m_error = error;
     m_state = State::Done;
+    m_idleTimer->stop();
+    m_keepAliveTimer->stop();
     cleanupFiles(true);
+    // finished permits consumers (including --once) to quit/delete us. Emit it
+    // from disconnected, after Qt has drained the final protocol frames.
     if (m_encryptionDone)
         sendDisconnectionAndClose();
     else
         m_socket->disconnectFromHost();
-    emit finished(this, m_savedFiles, error);
-    deleteLater();
+    // A stalled peer must not hold a connection slot indefinitely.
+    QTimer::singleShot(5000, this, [this] {
+        if (m_socket->state() != QAbstractSocket::UnconnectedState)
+            m_socket->abort();
+    });
 }
 
 void InboundConnection::cleanupFiles(bool deletePartial)
@@ -523,7 +640,7 @@ void InboundConnection::cleanupFiles(bool deletePartial)
     for (auto it = m_files.begin(); it != m_files.end(); ++it) {
         it->file->close();
         if (deletePartial)
-            QFile::remove(it->destPath);
+            QFile::remove(it->file->fileName());
         delete it->file;
     }
     m_files.clear();

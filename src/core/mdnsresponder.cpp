@@ -9,7 +9,6 @@
 namespace {
 constexpr quint16 kMdnsPort = 5353;
 const QHostAddress kMdnsGroup(QStringLiteral("224.0.0.251"));
-constexpr quint32 kTtl = 120;
 constexpr int kAnnounceIntervalMs = 60'000;
 
 // Picks the primary LAN IPv4: up & running, not loopback, not point-to-point,
@@ -77,6 +76,8 @@ bool MdnsResponder::start()
         stop();
         return false;
     }
+    m_socket->setMulticastInterface(iface);
+    m_socket->setSocketOption(QAbstractSocket::MulticastTtlOption, 255);
     // Useful for local self-tests; harmless otherwise.
     m_socket->setSocketOption(QAbstractSocket::MulticastLoopbackOption, QVariant(1));
     connect(m_socket, &QUdpSocket::readyRead, this, &MdnsResponder::onReadyRead);
@@ -102,6 +103,9 @@ void MdnsResponder::stop()
         m_announceTimer = nullptr;
     }
     if (m_socket) {
+        // Expire this instance immediately rather than leaving ghost entries
+        // in Android's device list until the 120-second TTL elapses.
+        m_socket->writeDatagram(buildResponse(0), kMdnsGroup, kMdnsPort);
         m_socket->leaveMulticastGroup(kMdnsGroup);
         m_socket->close();
         m_socket->deleteLater();
@@ -198,18 +202,18 @@ void MdnsResponder::onReadyRead()
     }
 }
 
-QByteArray MdnsResponder::buildResponse() const
+QByteArray MdnsResponder::buildResponse(quint32 ttl) const
 {
     QByteArray out;
     out.append(QByteArray(12, '\0'));
     out[2] = char(0x84); // QR=1, AA=1
     out[7] = 4;          // ANCOUNT = 4
 
-    auto appendCommon = [&out](const QString &name, quint16 type) {
+    auto appendCommon = [&out, ttl](const QString &name, quint16 type) {
         encodeName(out, name);
         out.append(char(type >> 8)).append(char(type & 0xff));
-        out.append(char(0x80)).append(char(0x01)); // cache-flush | IN
-        out.append(char(kTtl >> 24)).append(char(kTtl >> 16)).append(char(kTtl >> 8)).append(char(kTtl));
+        out.append(char(type == 12 ? 0 : 0x80)).append(char(0x01)); // shared PTR has no cache-flush
+        out.append(char(ttl >> 24)).append(char(ttl >> 16)).append(char(ttl >> 8)).append(char(ttl));
     };
     auto appendRdata = [&out](const QByteArray &rdata) {
         out.append(char(rdata.size() >> 8)).append(char(rdata.size() & 0xff));

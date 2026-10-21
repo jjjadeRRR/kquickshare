@@ -23,6 +23,7 @@ struct IncomingFile {
 
 struct TransferRequest {
     QString deviceName;
+    QString peerAddress;
     DeviceType deviceType = DeviceType::Unknown;
     QString pinCode;
     QVector<IncomingFile> files;
@@ -43,9 +44,11 @@ public slots:
     // Called by the UI in response to transferRequested.
     void acceptTransfer(const QString &destDir);
     void rejectTransfer();
+    void cancelTransfer();
 
 signals:
     void transferRequested(InboundConnection *self, const TransferRequest &request);
+    void overallProgress(InboundConnection *self, qint64 received, qint64 total);
     void transferProgress(InboundConnection *self, const QString &fileName, qint64 received, qint64 total);
     void textReceived(InboundConnection *self, const QString &text, int type);
     // error is empty on success.
@@ -90,6 +93,7 @@ private:
     void sendSharingFrame(const QByteArray &sharingFrame);
     void sendKeepAliveAck();
     void finishWithError(const QString &error);
+    void finishTransfer(const QString &error = {});
     void sendDisconnectionAndClose();
     void cleanupFiles(bool deletePartial);
 
@@ -118,6 +122,9 @@ private:
     qint64 m_textPayloadId = 0;
     TransferRequest m_pendingRequest;
     QStringList m_savedFiles;
+    qint64 m_receivedBytes = 0;
     QString m_error;
     QTimer *m_consentTimer = nullptr;
+    QTimer *m_idleTimer = nullptr;
+    QTimer *m_keepAliveTimer = nullptr;
 };

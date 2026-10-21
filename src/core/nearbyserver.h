@@ -21,6 +21,7 @@ public:
     bool start(const QString &deviceName, DeviceType deviceType = DeviceType::Laptop);
     void stop();
     bool isRunning() const;
+    bool hasActiveConnections() const;
 
 signals:
     void transferRequested(InboundConnection *connection, const TransferRequest &request);
