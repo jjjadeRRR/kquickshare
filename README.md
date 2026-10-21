@@ -10,6 +10,9 @@ KQuickShare is a small C++ / Qt 6 application inspired by
 [NearDrop](https://github.com/grishka/NearDrop). It uses Android's built-in
 Quick Share over your local network; no companion Android app is needed.
 
+> **This is a vibe-coded project.** It was developed with AI coding agents,
+> with hands-on testing by the project owner on Arch Linux / KDE and an Android phone.
+
 ## Features
 
 - Plasma tray icon, native KDE notifications and a Qt Widgets interface.

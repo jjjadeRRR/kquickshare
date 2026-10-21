@@ -49,9 +49,15 @@ if(BUILD_TESTING AND BUILD_GUI)
     target_compile_definitions(gui-tests PRIVATE SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
     target_link_libraries(gui-tests PRIVATE kqscore Qt6::Widgets Qt6::DBus Qt6::Test KF6::Notifications KF6::StatusNotifierItem KF6::Prison)
     find_program(DBUS_RUN_SESSION dbus-run-session)
+    # KNotification needs its event configuration even in an uninstalled build.
+    # Use a test fixture instead of depending on ~/.local/share from the developer.
+    set(GUI_TEST_DATA_DIR "${CMAKE_CURRENT_BINARY_DIR}/test-data")
+    file(MAKE_DIRECTORY "${GUI_TEST_DATA_DIR}/knotifications6")
+    configure_file(packaging/kquickshare.notifyrc
+        "${GUI_TEST_DATA_DIR}/knotifications6/kquickshare.notifyrc" COPYONLY)
     if(DBUS_RUN_SESSION)
         add_test(NAME gui-tests COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:gui-tests>)
-        set_tests_properties(gui-tests PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1")
+        set_tests_properties(gui-tests PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1;XDG_DATA_DIRS=${GUI_TEST_DATA_DIR}:/usr/local/share:/usr/share")
     endif()
 endif()
 add_executable(kquickshare-send src/cli/send.cpp)

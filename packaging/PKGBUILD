@@ -9,7 +9,7 @@ depends=('qt6-svg' 'qt6-base' 'openssl' 'knotifications' 'kstatusnotifieritem' '
 makedepends=('cmake' 'ninja')
 optdepends=('plasma-workspace: optional clipboard-history integration for Plasma 6.8')
 source=("$url/releases/download/v$pkgver/$pkgname-$pkgver.tar.gz")
-sha256sums=('0407cc7febe7a174c1c4e8b4bafda574c5290175968b01c3443330ff92d5caa9')
+sha256sums=('13f0bcbcdc6044d7074b5d8a5c8decc547ce7c16e975096dae9ab4c98a0bcd61')
 
 build() {
     cmake -S "$srcdir/$pkgname-$pkgver" -B "$srcdir/build" -G Ninja \
