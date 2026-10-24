@@ -4,6 +4,10 @@
 #include "senddialog.h"
 #include "outboundconnection.h"
 #include <QApplication>
+#include <QClipboard>
+#include <KSystemClipboard>
+#include <QMimeData>
+#include <QImage>
 #include <QCheckBox>
 #include <QDBusConnection>
 #include <QGroupBox>
@@ -14,6 +18,7 @@
 #include <QTcpServer>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QSignalSpy>
 #include <QVariantMap>
 
 class Notifications : public QObject {
@@ -45,6 +50,10 @@ class Notifications : public QObject {
 static Notifications *notifications;
 
 namespace {
+QImage clipboardImage() {
+    const auto *mime = KSystemClipboard::instance()->mimeData(QClipboard::Clipboard);
+    return mime ? qvariant_cast<QImage>(mime->imageData()) : QImage();
+}
 QByteArray receiverAnnouncement(quint16 port) {
     auto name = [](const QString &value) {
         QByteArray result;
@@ -81,6 +90,11 @@ QByteArray receiverAnnouncement(quint16 port) {
 class GuiTests : public QObject {
     Q_OBJECT
   private slots:
+    void cleanup() {
+        // KSystemClipboard keeps its Wayland read lock until the next event-loop
+        // iteration. Drain it before qExec returns and QApplication is destroyed.
+        QCoreApplication::processEvents();
+    }
     void localizedInterface_data() {
         QTest::addColumn<QStringList>("languages");
         QTest::addColumn<QString>("tab");
@@ -114,6 +128,139 @@ class GuiTests : public QObject {
                      ? QString("Нужен текст размером до 5 МиБ") : QString("Text must be at most 5 MiB"));
         receiver.show();
         receiver.grab().save(QString(SOURCE_DIR) + "/build/locale-" + localization::language(languages) + ".png");
+    }
+    void receivedClipboard_data() {
+        QTest::addColumn<QString>("kind");
+        QTest::addColumn<bool>("copy");
+        QTest::addColumn<bool>("save");
+        for (const auto &kind : {QString("text"), QString("txt"), QString("image")}) {
+            for (bool copy : {false, true}) {
+                for (bool save : {false, true}) {
+                    const auto name = kind + (copy ? "-copy" : "-no-copy") + (save ? "-save" : "-no-save");
+                    QTest::newRow(qPrintable(name)) << kind << copy << save;
+                }
+            }
+        }
+        QTest::newRow("invalid-utf8-preserved") << QString("invalid") << true << false;
+        QTest::newRow("failed-transfer-keeps-clipboard") << QString("truncated") << true << false;
+    }
+    void receivedClipboard() {
+        QFETCH(QString, kind);
+        QFETCH(bool, copy);
+        QFETCH(bool, save);
+        QTemporaryDir downloads;
+        QSettings settings;
+        settings.clear();
+        settings.setValue("copyReceivedImages", kind == "image" ? copy : !copy);
+        settings.setValue("copyReceivedText", kind == "image" ? !copy : copy);
+        settings.setValue("saveReceivedText", save);
+        settings.sync();
+        auto *initial = new QMimeData;
+        initial->setText("existing clipboard");
+        KSystemClipboard::instance()->setMimeData(initial, QClipboard::Clipboard);
+        QTRY_COMPARE(KSystemClipboard::instance()->text(QClipboard::Clipboard), QString("existing clipboard"));
+        QByteArray payload = QString("Привет с телефона 🌍\nВторая строка").toUtf8();
+        const QString text = QString::fromUtf8(payload);
+        QString filename = "shared.txt";
+        if (kind == "image") {
+            QImage image(3, 2, QImage::Format_RGB32);
+            image.fill(QColor(20, 100, 180));
+            QVERIFY(image.save(downloads.filePath("fixture.png")));
+            QFile fixture(downloads.filePath("fixture.png"));
+            QVERIFY(fixture.open(QIODevice::ReadOnly));
+            payload = fixture.readAll();
+            fixture.close();
+            QFile::remove(fixture.fileName());
+            filename = "photo.png";
+        } else if (kind == "invalid") {
+            payload = QByteArray::fromHex("fffe00fe");
+        }
+        if (kind == "txt") {
+            QFile existing(downloads.filePath("shared.txt"));
+            QVERIFY(existing.open(QIODevice::WriteOnly));
+            QCOMPARE(existing.write("keep existing"), 13);
+        }
+        Receiver receiver(downloads.path());
+        auto *tcp = receiver.findChild<QTcpServer *>();
+        QVERIFY(tcp && tcp->isListening());
+        QSignalSpy completed(receiver.findChild<NearbyServer *>(), &NearbyServer::connectionFinished);
+        const QString intro = kind == "text"
+            ? QString("s.send_sharing(sharing(1,2,b(2,b(2,'Shared text')+v(3,1)+v(4,42)+v(5,%1)))); s.recv_sharing()") .arg(payload.size())
+            : QString("s.introduce([(42,'%1',%2)])").arg(filename).arg(payload.size());
+        const QString script = QString(
+            "import sys; sys.path.insert(0,'%1/tests'); from fake_sender import Sender,sharing,b,v; "
+            "s=Sender('127.0.0.1',%2,'Clipboard Android'); %3; "
+            "s.payload(42,%4,%5,0,bytes.fromhex('%6'),True); s.close()")
+            .arg(SOURCE_DIR).arg(tcp->serverPort()).arg(intro)
+            .arg(kind == "text" ? 1 : 2).arg(payload.size())
+            .arg(QString::fromLatin1((kind == "truncated" ? payload.left(2) : payload).toHex()));
+        QProcess sender;
+        sender.start("python", {"-c", script});
+        QPushButton *accept = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT(([&] {
+            for (auto *button : receiver.findChildren<QPushButton *>())
+                if (button->text() == "Принять") { accept = button; return true; }
+            return false;
+        })(), 8000);
+        QTest::mouseClick(accept, Qt::LeftButton);
+        QTRY_COMPARE_WITH_TIMEOUT(sender.state(), QProcess::NotRunning, 8000);
+        QCOMPARE(sender.exitCode(), 0);
+        QTRY_COMPARE_WITH_TIMEOUT(completed.count(), 1, 8000);
+        QCOMPARE(completed.first().at(2).toString().isEmpty(), kind != "truncated");
+        if (kind == "image" && copy) {
+            QTRY_VERIFY(!clipboardImage().isNull());
+            const auto image = clipboardImage();
+            QCOMPARE(image.size(), QSize(3, 2));
+            QCOMPARE(image.pixelColor(0, 0), QColor(20, 100, 180));
+        } else {
+            QTRY_COMPARE(KSystemClipboard::instance()->text(QClipboard::Clipboard),
+                copy && (kind == "text" || kind == "txt") ? text : QString("existing clipboard"));
+        }
+        auto files = QDir(downloads.path()).entryList(QDir::Files | QDir::NoDotAndDotDot);
+        if (kind == "txt") {
+            QVERIFY(files.removeOne("shared.txt"));
+            QFile existing(downloads.filePath("shared.txt"));
+            QVERIFY(existing.open(QIODevice::ReadOnly));
+            QCOMPARE(existing.readAll(), QByteArray("keep existing"));
+        }
+        const bool shouldSave = kind == "image" || kind == "invalid" ||
+                                (save && (kind == "text" || kind == "txt"));
+        QCOMPARE(files.size(), shouldSave ? 1 : 0);
+        if (shouldSave) {
+            QFile file(downloads.filePath(files.first()));
+            QVERIFY(file.open(QIODevice::ReadOnly));
+            QCOMPARE(file.readAll(), payload);
+        }
+    }
+    void clipboardSettingsPersistIndependently() {
+        QTemporaryDir downloads;
+        QSettings settings;
+        settings.clear();
+        const QStringList keys{"copyReceivedImages", "copyReceivedText", "saveReceivedText"};
+        {
+            Receiver defaults(downloads.path());
+            for (const auto &key : keys)
+                QVERIFY(defaults.findChild<QCheckBox *>(key)->isChecked());
+        }
+        for (int enabled = 0; enabled < keys.size(); ++enabled) {
+            {
+                Receiver receiver(downloads.path());
+                for (int i = 0; i < keys.size(); ++i) {
+                    auto *box = receiver.findChild<QCheckBox *>(keys[i]);
+                    QVERIFY(box);
+                    box->setChecked(i == enabled);
+                }
+                auto *apply = receiver.findChild<QPushButton *>("applySettings");
+                QVERIFY(apply);
+                QTest::mouseClick(apply, Qt::LeftButton);
+            }
+            Receiver restarted(downloads.path());
+            for (int i = 0; i < keys.size(); ++i) {
+                auto *box = restarted.findChild<QCheckBox *>(keys[i]);
+                QVERIFY(box);
+                QCOMPARE(box->isChecked(), i == enabled);
+            }
+        }
     }
     void trustedRoundTrip() {
         QTemporaryDir downloads;

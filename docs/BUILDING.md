@@ -32,7 +32,7 @@ search paths yourself, or use the standard `~/.local` prefix.
 ## Manual build
 
 Build dependencies on Arch: `base-devel cmake ninja qt6-base qt6-svg qt6-tools
-openssl knotifications kstatusnotifieritem prison`. Qt LinguistTools compiles
+openssl knotifications kstatusnotifieritem prison kguiaddons`. Qt LinguistTools compiles
 the English catalog into the application. Qt Core, Network, Widgets and D-Bus,
 KDE Notifications, StatusNotifierItem and Prison, and OpenSSL are required.
 

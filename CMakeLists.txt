@@ -34,6 +34,7 @@ if(BUILD_GUI)
     find_package(KF6Notifications REQUIRED)
     find_package(KF6StatusNotifierItem REQUIRED)
     find_package(KF6Prison REQUIRED)
+    find_package(KF6GuiAddons REQUIRED)
     add_subdirectory(src/app)
 endif()
 
@@ -49,7 +50,7 @@ if(BUILD_TESTING AND BUILD_GUI)
     add_executable(gui-tests tests/gui_tests.cpp src/app/receiver.cpp src/app/receiver.h src/app/senddialog.cpp src/app/senddialog.h)
     target_include_directories(gui-tests PRIVATE src/app)
     target_compile_definitions(gui-tests PRIVATE SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
-    target_link_libraries(gui-tests PRIVATE kqscore Qt6::Widgets Qt6::DBus Qt6::Test KF6::Notifications KF6::StatusNotifierItem KF6::Prison)
+    target_link_libraries(gui-tests PRIVATE kqscore Qt6::Widgets Qt6::DBus Qt6::Test KF6::Notifications KF6::StatusNotifierItem KF6::Prison KF6::GuiAddons)
     find_program(DBUS_RUN_SESSION dbus-run-session)
     # KNotification needs its event configuration even in an uninstalled build.
     # Use a test fixture instead of depending on ~/.local/share from the developer.

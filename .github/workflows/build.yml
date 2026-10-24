@@ -19,7 +19,7 @@ jobs:
         run: >-
           pacman -Syu --noconfirm --needed git cmake ninja
           qt6-base qt6-svg qt6-declarative qt6-tools openssl
-          knotifications kstatusnotifieritem prison ki18n
+          knotifications kstatusnotifieritem prison kguiaddons ki18n
           plasma-workspace dbus python-cryptography
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build

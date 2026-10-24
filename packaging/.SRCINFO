@@ -16,6 +16,7 @@ pkgbase = kquickshare
 	depends = knotifications
 	depends = kstatusnotifieritem
 	depends = prison
+	depends = kguiaddons
 	optdepends = plasma-workspace: optional clipboard-history integration for Plasma 6.8
 	source = https://github.com/jjjadeRRR/kquickshare/releases/download/v0.3.0/kquickshare-0.3.0.tar.gz
 	sha256sums = cb58436c5e0b5e092af555495a308a680cc7e8d6695aafe5daf1687a36c8ae4a

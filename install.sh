@@ -27,7 +27,7 @@ if ((EUID == 0)) && [[ "$prefix" = "$HOME/.local" ]]; then
 fi
 
 if ((install_deps)) && command -v pacman >/dev/null 2>&1; then
-    required=(base-devel cmake ninja qt6-base qt6-svg qt6-tools openssl knotifications kstatusnotifieritem prison)
+    required=(base-devel cmake ninja qt6-base qt6-svg qt6-tools openssl knotifications kstatusnotifieritem prison kguiaddons)
     missing=()
     while IFS= read -r package; do
         [[ -z "$package" ]] || missing+=("$package")

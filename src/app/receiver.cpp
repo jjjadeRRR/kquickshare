@@ -1,6 +1,8 @@
 #include "receiver.h"
 #include "senddialog.h"
 #include <QClipboard>
+#include <KSystemClipboard>
+#include <QMimeData>
 #include <KNotification>
 #include <KStatusNotifierItem>
 #include <QApplication>
@@ -27,6 +29,9 @@
 #include <QStandardPaths>
 #include <QTabWidget>
 #include <QTimer>
+#include <QImageReader>
+#include <QStringDecoder>
+#include <QTemporaryFile>
 #include <QUrl>
 
 namespace {
@@ -104,7 +109,19 @@ Receiver::Receiver(const QString &destinationOverride)
                                   "/autostart/org.kde.kquickshare.desktop";
     m_autostart->setChecked(QFileInfo::exists(autostartPath));
     form->addRow(m_autostart);
+    auto option = [this, form](const QString &title, const char *key) {
+        auto *box = new QCheckBox(title);
+        box->setObjectName(QString::fromLatin1(key));
+        box->setChecked(m_settings.value(key, true).toBool());
+        form->addRow(box);
+        return box;
+    };
+    m_copyImages = option(tr("Добавлять полученные фото в буфер обмена"), "copyReceivedImages");
+    m_copyText = option(tr("Добавлять полученный текст в буфер обмена"), "copyReceivedText");
+    m_saveText = option(tr("Сохранять текст в виде файла"), "saveReceivedText");
+    m_saveText->setToolTip(tr("Общий текст Quick Share и файлы .txt в UTF-8 до 5 МиБ. Фото всегда сохраняются в Downloads. Если обе настройки текста выключены, текст будет отброшен."));
     auto *apply = new QPushButton(QIcon::fromTheme("dialog-ok-apply"), tr("Применить"));
+    apply->setObjectName("applySettings");
     form->addRow(apply);
     form->addRow(label(tr("Компьютер виден всем в локальной сети, пока приём включён. Для "
                        "незнакомых устройств всегда требуется подтверждение с PIN-кодом.")));
@@ -129,7 +146,7 @@ Receiver::Receiver(const QString &destinationOverride)
         const auto paths = QFileDialog::getOpenFileNames(this, tr("Отправить на телефон"), QDir::homePath());
         if (!paths.isEmpty()) sendFiles(paths);
     });
-    connect(sendTextButton, &QPushButton::clicked, this, [this] { sendText(QApplication::clipboard()->text()); });
+    connect(sendTextButton, &QPushButton::clicked, this, [this] { sendText(KSystemClipboard::instance()->text(QClipboard::Clipboard)); });
     auto *footer = new QHBoxLayout;
     auto *open = new QPushButton(QIcon::fromTheme("folder-download"), tr("Открыть папку загрузок"));
     footer->addWidget(open);
@@ -152,6 +169,9 @@ Receiver::Receiver(const QString &destinationOverride)
         m_settings.setValue("name", name);
 
         m_settings.setValue("enabled", m_enabled->isChecked());
+        m_settings.setValue("copyReceivedImages", m_copyImages->isChecked());
+        m_settings.setValue("copyReceivedText", m_copyText->isChecked());
+        m_settings.setValue("saveReceivedText", m_saveText->isChecked());
         if (m_autostart->isChecked()) {
             QDir().mkpath(QFileInfo(autostartPath).absolutePath());
             QSaveFile f(autostartPath);
@@ -198,20 +218,9 @@ Receiver::Receiver(const QString &destinationOverride)
     connect(&m_server, &NearbyServer::connectionFinished, this, &Receiver::finish);
     connect(&m_server, &NearbyServer::textReceived, this,
             [this](InboundConnection *conn, const QString &text, int) {
-                // Store shared text as data; never launch received URLs
-                // automatically.
-                QDir().mkpath(destination());
-                QString path =
-                    QDir(destination())
-                        .filePath("Quick Share " +
-                                  QDateTime::currentDateTime().toString("yyyy-MM-dd HH-mm-ss-zzz") + ".txt");
-                QSaveFile f(path);
-                const QByteArray bytes = text.toUtf8();
-                if (!f.open(QIODevice::WriteOnly) || f.write(bytes) != bytes.size() || !f.commit()) {
-                    if (m_active.contains(conn))
-                        m_active[conn].textSaveFailed = true;
-                    notify("error", tr("Не удалось сохранить текст"), f.errorString());
-                }
+                auto it = m_active.find(conn);
+                if (it != m_active.end())
+                    it->text = text;
             });
     connect(&m_server, &NearbyServer::errorOccurred, this, [this](const QString &error) {
         m_lastError = error;
@@ -419,7 +428,79 @@ void Receiver::finish(InboundConnection *conn, const QStringList &files, const Q
     auto it = m_active.find(conn);
     if (it == m_active.end())
         return;
-    const QString error = it->textSaveFailed ? tr("Не удалось сохранить текст на диск") : incomingError;
+    QString error = incomingError;
+    QStringList savedFiles = files;
+    bool copied = false;
+    if (error.isEmpty()) {
+        const bool copyText = m_settings.value("copyReceivedText", true).toBool();
+        const bool saveText = m_settings.value("saveReceivedText", true).toBool();
+        auto copy = [&](const QString &text) {
+            if (copyText) {
+                auto *mime = new QMimeData;
+                mime->setText(text);
+                KSystemClipboard::instance()->setMimeData(mime, QClipboard::Clipboard);
+                copied = true;
+            }
+        };
+        if (it->text) {
+            copy(*it->text);
+            if (saveText) {
+                QDir().mkpath(destination());
+                QTemporaryFile file(QDir(destination()).filePath(
+                    "Quick Share " + QDateTime::currentDateTime().toString("yyyy-MM-dd HH-mm-ss") + "-XXXXXX.txt"));
+                const auto bytes = it->text->toUtf8();
+                if (!file.open() || file.write(bytes) != bytes.size() || !file.flush()) {
+                    error = tr("Не удалось сохранить текст на диск");
+                } else {
+                    file.setAutoRemove(false);
+                    savedFiles.append(file.fileName());
+                }
+            }
+        }
+        for (const auto &path : files) {
+            const QFileInfo info(path);
+            if (info.suffix().compare("txt", Qt::CaseInsensitive) == 0 && info.size() <= 5 * 1024 * 1024) {
+                QFile file(path);
+                if (file.open(QIODevice::ReadOnly)) {
+                    const auto bytes = file.read(5 * 1024 * 1024 + 1);
+                    QStringDecoder decoder(QStringDecoder::Utf8);
+                    const QString text = decoder.decode(bytes);
+                    const bool valid = !decoder.hasError() && !text.contains(QChar::Null) &&
+                                       bytes.size() == info.size();
+                    file.close();
+                    if (valid) {
+                        copy(text);
+                        if (!saveText) {
+                            if (QFile::remove(path))
+                                savedFiles.removeOne(path);
+                            else
+                                error = tr("Не удалось удалить текстовый файл: %1").arg(info.fileName());
+                        }
+                        continue;
+                    }
+                }
+            }
+            if (m_settings.value("copyReceivedImages", true).toBool()) {
+                QImageReader reader(path);
+                reader.setDecideFormatFromContent(true);
+                reader.setAutoTransform(true);
+                const auto size = reader.size();
+                // Bound decoded memory; large/unrecognized images remain available on disk.
+                if (size.isValid() && qint64(size.width()) * size.height() <= 32 * 1024 * 1024) {
+                    const auto image = reader.read();
+                    if (!image.isNull()) {
+                        auto *mime = new QMimeData;
+                        mime->setImageData(image);
+                        KSystemClipboard::instance()->setMimeData(mime, QClipboard::Clipboard);
+                        copied = true;
+                    }
+                }
+            }
+        }
+    }
+    QString result = tr("Получено. Сохранено файлов: %1").arg(savedFiles.size());
+    if (copied)
+        result += tr(" · Добавлено в буфер обмена");
     qInfo("Quick Share finished: files=%lld error=%s", qlonglong(files.size()), qPrintable(error));
     const QString device = it->request.deviceName;
     if (it->notification)
@@ -427,8 +508,7 @@ void Receiver::finish(InboundConnection *conn, const QStringList &files, const Q
     it->consent->hide();
     if (error.isEmpty()) {
         it->progress->setValue(1000);
-        it->status->setText(files.isEmpty() ? tr("Текст получен и сохранён")
-                                            : tr("Сохранено файлов: %1").arg(files.size()));
+        it->status->setText(result);
     } else {
         it->progress->hide();
         it->status->setText(error);
@@ -436,10 +516,8 @@ void Receiver::finish(InboundConnection *conn, const QStringList &files, const Q
     auto *n = notify(
         error.isEmpty() ? "complete" : "error",
         error.isEmpty() ? tr("Получено от «%1»").arg(device) : tr("Передача от «%1» завершена").arg(device),
-        error.isEmpty() ? (files.isEmpty() ? tr("Текст сохранён в папке загрузок")
-                                           : tr("Файлов: %1 · %2").arg(files.size()).arg(destination()))
-                        : error);
-    if (error.isEmpty())
+        error.isEmpty() ? result : error);
+    if (error.isEmpty() && !savedFiles.isEmpty())
         connect(n->addAction(tr("Открыть папку")), &KNotificationAction::activated, this,
                 [this] { QDesktopServices::openUrl(QUrl::fromLocalFile(destination())); });
     m_active.erase(it);

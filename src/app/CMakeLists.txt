@@ -1,5 +1,5 @@
 add_executable(kquickshare main.cpp receiver.cpp receiver.h senddialog.cpp senddialog.h)
-target_link_libraries(kquickshare PRIVATE kqscore Qt6::Widgets Qt6::DBus KF6::Notifications KF6::StatusNotifierItem KF6::Prison)
+target_link_libraries(kquickshare PRIVATE kqscore Qt6::Widgets Qt6::DBus KF6::Notifications KF6::StatusNotifierItem KF6::Prison KF6::GuiAddons)
 install(TARGETS kquickshare RUNTIME DESTINATION bin)
 install(FILES ../../packaging/org.kde.kquickshare.desktop DESTINATION share/applications)
 install(FILES ../../packaging/kquickshare.notifyrc DESTINATION share/knotifications6)

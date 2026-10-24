@@ -5,6 +5,7 @@
 #include <QMainWindow>
 #include <QPointer>
 #include <QSettings>
+#include <optional>
 class QLabel;
 class QLineEdit;
 class QCheckBox;
@@ -35,7 +36,7 @@ class Receiver : public QMainWindow {
         QPointer<QWidget> consent;
         QPointer<KNotification> notification;
         QPointer<QCheckBox> remember;
-        bool textSaveFailed = false;
+        std::optional<QString> text;
         bool accepted = false;
     };
     void incoming(InboundConnection *conn, const TransferRequest &request);
@@ -57,6 +58,9 @@ class Receiver : public QMainWindow {
     QLineEdit *m_folder;
     QCheckBox *m_enabled;
     QCheckBox *m_autostart;
+    QCheckBox *m_copyImages;
+    QCheckBox *m_copyText;
+    QCheckBox *m_saveText;
     QListWidget *m_trusted;
     QVBoxLayout *m_transfers;
     QLabel *m_empty;

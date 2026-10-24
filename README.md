@@ -73,8 +73,8 @@ headless installation and build dependencies.
 1. Connect the computer and phone to the same LAN. Ethernet on the PC is fine.
 2. Start KQuickShare and choose Share → Quick Share on Android.
 3. Select the computer, compare the PIN and accept on the PC.
-4. Files appear in `~/Downloads`. Received text and links are saved as `.txt`;
-   links are never opened automatically.
+4. Files appear in `~/Downloads`. Received photos and text are also copied to the
+   clipboard by default. Links are never opened automatically.
 
 For automatic reception, check the trust option in the incoming transfer card
 **before** accepting. Remove a device from the Trusted devices tab to revoke it.
@@ -96,6 +96,26 @@ The transport is LAN-only. Bluetooth is not required; BLE activation, Wi-Fi
 Direct, internet transfer and Google-account contact discovery are not implemented.
 Wi-Fi client isolation, multicast filtering or a firewall can prevent discovery
 or connections. Discovery uses UDP 5353 and transfers use a dynamically assigned TCP port.
+
+## Received photos and text
+
+The **Settings** tab has three independent options, all enabled by default:
+
+- **Copy received photos to the clipboard**.
+- **Copy received text to the clipboard**.
+- **Save received text as a file**.
+
+Click **Apply** to save your choices. Text includes Quick Share text messages
+(such as sharing copied text on Android) and valid UTF-8 `.txt` attachments up to
+5 MiB. Disable saving to keep these text files out of Downloads; disabling both
+text options discards received text. Photos and other files always remain in
+`~/Downloads`.
+
+The clipboard changes only after a successful transfer. With multiple attachments,
+the last processed eligible attachment remains in the clipboard. Images are copied
+as images and text as text, rather than file paths. Images above 32 megapixels are
+saved without clipboard copying; invalid or oversized `.txt` files are preserved
+as ordinary files.
 
 ## Optional clipboard-history button (Plasma 6.8)
 
