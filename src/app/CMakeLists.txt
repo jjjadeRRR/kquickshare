@@ -1,10 +1,12 @@
 add_executable(kquickshare main.cpp receiver.cpp receiver.h senddialog.cpp senddialog.h)
 target_link_libraries(kquickshare PRIVATE kqscore Qt6::Widgets Qt6::DBus KF6::Notifications KF6::StatusNotifierItem KF6::Prison KF6::GuiAddons)
 install(TARGETS kquickshare RUNTIME DESTINATION bin)
-install(FILES ../../packaging/org.kde.kquickshare.desktop DESTINATION share/applications)
+configure_file(../../packaging/org.kde.kquickshare.desktop.in org.kde.kquickshare.desktop @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/org.kde.kquickshare.desktop DESTINATION share/applications)
 install(FILES ../../packaging/kquickshare.notifyrc DESTINATION share/knotifications6)
 
-install(PROGRAMS ../../packaging/kquickshare-send.desktop DESTINATION share/kio/servicemenus)
+configure_file(../../packaging/kquickshare-send.desktop.in kquickshare-send.desktop @ONLY)
+install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/kquickshare-send.desktop DESTINATION share/kio/servicemenus)
 configure_file(../../packaging/org.kde.kquickshare.service.in org.kde.kquickshare.service @ONLY)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/org.kde.kquickshare.service DESTINATION share/dbus-1/services)
 
@@ -19,3 +21,6 @@ install(FILES icons/org.kde.kquickshare-symbolic.svg
     DESTINATION share/icons/hicolor/22x22/apps)
 
 install(FILES ../../README.md ../../README.ru.md DESTINATION share/doc/kquickshare)
+
+install(FILES ../../packaging/firewalld/kquickshare.xml DESTINATION lib/firewalld/services)
+install(FILES ../../packaging/org.kde.kquickshare.metainfo.xml DESTINATION share/metainfo)

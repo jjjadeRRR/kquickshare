@@ -7,6 +7,7 @@
 #include <QSettings>
 #include <optional>
 class QLabel;
+class QSpinBox;
 class QLineEdit;
 class QCheckBox;
 class QListWidget;
@@ -56,6 +57,7 @@ class Receiver : public QMainWindow {
     QLabel *m_state;
     QLineEdit *m_name;
     QLineEdit *m_folder;
+    QSpinBox *m_port;
     QCheckBox *m_enabled;
     QCheckBox *m_autostart;
     QCheckBox *m_copyImages;

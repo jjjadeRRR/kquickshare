@@ -27,6 +27,7 @@
 #include <QSaveFile>
 #include <QScrollArea>
 #include <QStandardPaths>
+#include <QSpinBox>
 #include <QTabWidget>
 #include <QTimer>
 #include <QImageReader>
@@ -60,7 +61,7 @@ Receiver::Receiver(const QString &destinationOverride)
     : m_destination(destinationOverride.isEmpty() ? QDir::homePath() + "/Downloads" : destinationOverride),
       m_server(this), m_tray(new KStatusNotifierItem("kquickshare", this)) {
     setWindowTitle("KQuickShare");
-    resize(640, 590);
+    resize(680, 660);
     auto *central = new QWidget(this);
     auto *layout = new QVBoxLayout(central);
     layout->setContentsMargins(20, 20, 20, 20);
@@ -101,9 +102,17 @@ Receiver::Receiver(const QString &destinationOverride)
     auto *folderLayout = new QHBoxLayout(folderRow);
     folderLayout->setContentsMargins(0, 0, 0, 0);
     m_folder = new QLineEdit(destination());
+    m_folder->setObjectName("downloadDirectory");
     m_folder->setReadOnly(true);
     folderLayout->addWidget(m_folder);
     form->addRow(tr("Сохранять в:"), folderRow);
+    m_port = new QSpinBox;
+    m_port->setObjectName("listenPort");
+    m_port->setRange(0, 65535);
+    m_port->setSpecialValueText(tr("Автоматически"));
+    m_port->setValue(m_settings.value("listenPort", 53318).toInt());
+    m_port->setToolTip(tr("Для брандмауэра разрешите входящий TCP на этот порт и mDNS (UDP 5353) только в доверенной сети. 0 — случайный порт."));
+    form->addRow(tr("TCP-порт приёма:"), m_port);
     m_autostart = new QCheckBox(tr("Запускать при входе в KDE"));
     const QString autostartPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) +
                                   "/autostart/org.kde.kquickshare.desktop";
@@ -125,7 +134,12 @@ Receiver::Receiver(const QString &destinationOverride)
     form->addRow(apply);
     form->addRow(label(tr("Компьютер виден всем в локальной сети, пока приём включён. Для "
                        "незнакомых устройств всегда требуется подтверждение с PIN-кодом.")));
-    tabs->addTab(settings, QIcon::fromTheme("configure"), tr("Настройки"));
+    auto *settingsScroll = new QScrollArea;
+    settingsScroll->setWidgetResizable(true);
+    settingsScroll->setFrameShape(QFrame::NoFrame);
+    settingsScroll->setWidget(settings);
+    form->setSizeConstraint(QLayout::SetMinimumSize);
+    tabs->addTab(settingsScroll, QIcon::fromTheme("configure"), tr("Настройки"));
     auto *trustedPage = new QWidget;
     auto *trustedLayout = new QVBoxLayout(trustedPage);
     trustedLayout->addWidget(label(tr("Доверенные устройства")));
@@ -167,6 +181,7 @@ Receiver::Receiver(const QString &destinationOverride)
             return;
         }
         m_settings.setValue("name", name);
+        m_settings.setValue("listenPort", m_port->value());
 
         m_settings.setValue("enabled", m_enabled->isChecked());
         m_settings.setValue("copyReceivedImages", m_copyImages->isChecked());
@@ -269,7 +284,8 @@ void Receiver::refreshTrusted() {
 void Receiver::startReceiver() {
     m_lastError.clear();
     if (m_settings.value("enabled", true).toBool())
-        m_server.start(m_settings.value("name", QHostInfo::localHostName()).toString());
+        m_server.start(m_settings.value("name", QHostInfo::localHostName()).toString(),
+                       DeviceType::Laptop, quint16(m_settings.value("listenPort", 53318).toUInt()));
     else
         m_server.stop();
     refreshState();

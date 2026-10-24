@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.kde.kquickshare</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>KQuickShare</name>
+  <summary>Send files and text between Android and KDE Plasma</summary>
+  <summary xml:lang="ru">Передача файлов и текста между Android и KDE Plasma</summary>
+  <description>
+    <p>KQuickShare uses Android's built-in Quick Share over a local network. Receive files in the system tray, send from Dolphin, and copy received photos and text to the clipboard. No companion Android app is required.</p>
+    <p>The application uses Qt 6 and KDE Frameworks 6. It supports explicit acceptance or automatic reception from trusted devices, progress, cancellation, and optional startup at login. It is an independent community project, unaffiliated with Google or KDE.</p>
+  </description>
+  <launchable type="desktop-id">org.kde.kquickshare.desktop</launchable>
+  <url type="homepage">https://github.com/jjjadeRRR/kquickshare</url>
+  <url type="bugtracker">https://github.com/jjjadeRRR/kquickshare/issues</url>
+  <url type="vcs-browser">https://github.com/jjjadeRRR/kquickshare</url>
+  <url type="contribute">https://github.com/jjjadeRRR/kquickshare/blob/main/CONTRIBUTING.md</url>
+  <developer id="io.github.jjjaderrr"><name>KQuickShare contributors</name></developer>
+  <content_rating type="oars-1.1"/>
+  <categories><category>Network</category><category>FileTransfer</category></categories>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Independent settings for received text and photos</caption>
+      <image>https://raw.githubusercontent.com/jjjadeRRR/kquickshare/main/docs/images/settings-en.png</image>
+    </screenshot>
+  </screenshots>
+  <releases>
+    <release version="0.4.0" date="2026-10-24"><description><p>Clipboard reception, cross-distribution installation, native package recipes, and compatibility checks.</p></description></release>
+    <release version="0.3.0" date="2026-10-21"/>
+  </releases>
+  <supports><control>pointing</control><control>keyboard</control></supports>
+</component>

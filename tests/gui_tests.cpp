@@ -13,6 +13,8 @@
 #include <QGroupBox>
 #include <QLabel>
 #include <QListWidget>
+#include <QLineEdit>
+#include <QSpinBox>
 #include <QProcess>
 #include <QPushButton>
 #include <QTcpServer>
@@ -111,6 +113,7 @@ class GuiTests : public QObject {
         QTranslator translator;
         QVERIFY(localization::load(translator, languages));
         QTemporaryDir downloads;
+        QSettings().setValue("name", "Linux PC");
         Receiver receiver(downloads.path());
         auto *tabs = receiver.findChild<QTabWidget *>();
         QVERIFY(tabs);
@@ -128,6 +131,11 @@ class GuiTests : public QObject {
                      ? QString("Нужен текст размером до 5 МиБ") : QString("Text must be at most 5 MiB"));
         receiver.show();
         receiver.grab().save(QString(SOURCE_DIR) + "/build/locale-" + localization::language(languages) + ".png");
+        tabs->setCurrentIndex(1);
+        // Use generic display values in documentation screenshots, never host data.
+        receiver.findChild<QLineEdit *>("downloadDirectory")->setText("~/Downloads");
+        receiver.findChild<QSpinBox *>("listenPort")->setValue(53318);
+        receiver.grab().save(QString(SOURCE_DIR) + "/build/settings-" + localization::language(languages) + ".png");
     }
     void receivedClipboard_data() {
         QTest::addColumn<QString>("kind");
@@ -151,6 +159,7 @@ class GuiTests : public QObject {
         QTemporaryDir downloads;
         QSettings settings;
         settings.clear();
+        settings.setValue("listenPort", 0);
         settings.setValue("copyReceivedImages", kind == "image" ? copy : !copy);
         settings.setValue("copyReceivedText", kind == "image" ? !copy : copy);
         settings.setValue("saveReceivedText", save);
@@ -195,7 +204,7 @@ class GuiTests : public QObject {
             .arg(kind == "text" ? 1 : 2).arg(payload.size())
             .arg(QString::fromLatin1((kind == "truncated" ? payload.left(2) : payload).toHex()));
         QProcess sender;
-        sender.start("python", {"-c", script});
+        sender.start(QStringLiteral(PYTHON_EXECUTABLE), {"-c", script});
         QPushButton *accept = nullptr;
         QTRY_VERIFY_WITH_TIMEOUT(([&] {
             for (auto *button : receiver.findChildren<QPushButton *>())
@@ -236,6 +245,7 @@ class GuiTests : public QObject {
         QTemporaryDir downloads;
         QSettings settings;
         settings.clear();
+        settings.setValue("listenPort", 0);
         const QStringList keys{"copyReceivedImages", "copyReceivedText", "saveReceivedText"};
         {
             Receiver defaults(downloads.path());
@@ -262,11 +272,37 @@ class GuiTests : public QObject {
             }
         }
     }
+    void configuredListeningPort() {
+        QTemporaryDir downloads;
+        QTcpServer probe;
+        QVERIFY(probe.listen(QHostAddress::LocalHost));
+        const quint16 port = probe.serverPort();
+        probe.close();
+        QSettings settings;
+        settings.clear();
+        settings.setValue("listenPort", port);
+        Receiver receiver(downloads.path());
+        auto *tcp = receiver.findChild<QTcpServer *>();
+        QVERIFY(tcp && tcp->isListening());
+        QCOMPARE(tcp->serverPort(), port);
+    }
+    void occupiedListeningPortDoesNotSilentlyMove() {
+        QTemporaryDir downloads;
+        QTcpServer occupied;
+        QVERIFY(occupied.listen(QHostAddress::AnyIPv4));
+        QSettings settings;
+        settings.clear();
+        settings.setValue("listenPort", occupied.serverPort());
+        Receiver receiver(downloads.path());
+        auto *tcp = receiver.findChild<QTcpServer *>();
+        QVERIFY(!tcp || !tcp->isListening());
+    }
     void trustedRoundTrip() {
         QTemporaryDir downloads;
         QVERIFY(downloads.isValid());
         QSettings settings;
         settings.clear();
+        settings.setValue("listenPort", 0);
         settings.setValue("destination", downloads.path());
         settings.sync();
         Receiver receiver(downloads.path());
@@ -283,7 +319,7 @@ class GuiTests : public QObject {
                                        .arg(QString("'%1/tests'").arg(SOURCE_DIR))
                                        .arg(port)
                                        .arg("'" + name + "'");
-            process.start("python", {"-c", script});
+            process.start(QStringLiteral(PYTHON_EXECUTABLE), {"-c", script});
         };
         QProcess first;
         send(first, "Test Android");
@@ -356,7 +392,7 @@ class GuiTests : public QObject {
                         "print(s.getsockname()[1],flush=True); r=Receiver(s,'%2'); print(r.text,flush=True)")
                     .arg(SOURCE_DIR)
                     .arg(mode);
-            process.start("python", {"-c", script});
+            process.start(QStringLiteral(PYTHON_EXECUTABLE), {"-c", script});
             if (!process.waitForReadyRead(5000))
                 return quint16(0);
             return process.readLine().trimmed().toUShort();
@@ -410,6 +446,7 @@ int main(int argc, char **argv) {
         !bus.registerObject("/org/freedesktop/Notifications", notifications,
                             QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals))
         return 1;
+    QSettings().setValue("listenPort", 0);
     GuiTests tests;
     return QTest::qExec(&tests, argc, argv);
 }

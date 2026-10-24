@@ -17,8 +17,8 @@ public:
     explicit NearbyServer(QObject *parent = nullptr);
     ~NearbyServer() override;
 
-    // Starts the TCP listener on a random port and advertises it via mDNS.
-    bool start(const QString &deviceName, DeviceType deviceType = DeviceType::Laptop);
+    // Starts the TCP listener on the requested port (0 = automatic) and advertises it via mDNS.
+    bool start(const QString &deviceName, DeviceType deviceType = DeviceType::Laptop, quint16 listenPort = 0);
     void stop();
     bool isRunning() const;
     bool hasActiveConnections() const;

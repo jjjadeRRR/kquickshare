@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<service>
+  <short>KQuickShare</short>
+  <description>Receive Android Quick Share transfers on TCP 53318 and discover devices using mDNS. Enable only in a trusted local-network zone.</description>
+  <port protocol="tcp" port="53318"/>
+  <port protocol="udp" port="5353"/>
+</service>

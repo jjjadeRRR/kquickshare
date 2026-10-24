@@ -2,12 +2,30 @@
 
 [English](README.md) · **Русский**
 
-Нативное приложение Google Quick Share / Nearby Share для Arch Linux и KDE Plasma 6.
+Нативное приложение Google Quick Share / Nearby Share для Linux и KDE Plasma 6.
 Телефон отправляет файлы штатной кнопкой **Поделиться → Quick Share**; приложение
 работает в системном трее. Дополнительная программа на Android не нужна.
 
 > **Это вайбкод-проект.** Приложение разрабатывалось с помощью ИИ-агентов,
 > а владелец проекта проверял его работу на Arch Linux / KDE и реальном Android-телефоне.
+
+## Дистрибутивы и совместимость
+
+Основное приложение рассчитано на **Plasma 6**, Qt **6.8+** и KDE Frameworks **6.0+**.
+Установщик определяет семейства Arch, Debian/Ubuntu, Fedora и openSUSE.
+Сборка и автоматические проверки выполняются на Arch, Debian 13 и Fedora 43;
+Ubuntu 26.04 включена в CI. С настоящим телефоном пока в основном проверяли
+Arch / Plasma 6.8 / Pixel 7 Pro. Plasma 5 не поддерживается.
+
+[Что именно проверено, версии KDE и брандмауэр](docs/COMPATIBILITY.md) ·
+[Сообщить о проблеме](https://github.com/jjjadeRRR/kquickshare/issues/new/choose)
+
+![Настройки KQuickShare](docs/images/settings-ru.png)
+
+В [Releases](https://github.com/jjjadeRRR/kquickshare/releases) есть исходники
+и пакеты для конкретных дистрибутивов. Выбирайте пакет своей системы: Debian `.deb`
+не является универсальным пакетом Ubuntu, а Fedora RPM — пакетом openSUSE.
+Если подходящего пакета нет, используйте установку из исходников ниже.
 
 ## Возможности
 
@@ -81,8 +99,8 @@ https://github.com/jjjadeRRR/kquickshare
 ./install.sh
 ```
 
-На Arch Linux установщик проверит зависимости и предложит установить недостающие
-через `pacman` с помощью sudo. Затем соберёт приложение, установит его в `~/.local`
+Установщик определит дистрибутив, проверит зависимости и предложит установить недостающие
+через пакетный менеджер с помощью sudo. Затем соберёт приложение, установит его в `~/.local`
 и запустит в текущем сеансе KDE. Сам скрипт запускайте от обычного пользователя,
 без sudo. Пароль администратора может потребоваться только для установки зависимостей.
 
@@ -139,7 +157,7 @@ systemctl --user restart plasma-plasmashell.service
 
 ```sh
 sudo pacman -S --needed python-cryptography
-cmake -S . -B build -G Ninja -DBUILD_TESTING=ON
+cmake -S . -B build -G Ninja -DBUILD_TESTING=ON -DBUILD_PLASMA_CLIPBOARD_TESTS=ON
 cmake --build build
 ctest --test-dir build --output-on-failure
 python tests/fake_sender.py --binary build/kquickshare-cli -v

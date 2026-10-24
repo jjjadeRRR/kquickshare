@@ -6,11 +6,26 @@ The normal desktop installation needs one command from an extracted source tree:
 ./install.sh
 ```
 
-On Arch Linux the script checks packages and installs missing dependencies using
-`sudo pacman -S --needed`. It does not run a system upgrade or change the trust
-list, autostart preference or optional clipboard overlay. It builds with at most
-four parallel jobs, installs into `~/.local`, reloads the user systemd manager,
-restarts KQuickShare and opens its window. Finish current transfers before updating.
+The installer detects Arch/derivatives, Debian/Ubuntu (with KF6 packages), Fedora
+and openSUSE. It checks installed packages and uses the native package manager
+with sudo when needed. It never adds a repository, upgrades the desktop, changes
+the firewall or enables the private clipboard overlay. It builds with at most
+four parallel jobs and installs into `~/.local`. Finish current transfers first.
+
+Preview the dependency command without installing anything:
+
+```sh
+./install.sh --print-deps
+```
+
+`--distro debian|ubuntu|arch|fedora|opensuse-tumbleweed` explicitly selects the
+package family, useful for derivatives. `--deps-only` installs only dependencies;
+`--no-deps` skips package management. Debian needs KF6 packages (Debian 13+);
+Ubuntu-based Plasma 5 systems such as Kubuntu 24.04 need a newer distribution,
+not an extra repository silently added by this script.
+
+See [COMPATIBILITY.md](COMPATIBILITY.md) for tested environments, Plasma versions,
+firewall setup and the experimental clipboard-history overlay.
 
 For an installation without starting or restarting the application:
 
@@ -34,7 +49,8 @@ search paths yourself, or use the standard `~/.local` prefix.
 Build dependencies on Arch: `base-devel cmake ninja qt6-base qt6-svg qt6-tools
 openssl knotifications kstatusnotifieritem prison kguiaddons`. Qt LinguistTools compiles
 the English catalog into the application. Qt Core, Network, Widgets and D-Bus,
-KDE Notifications, StatusNotifierItem and Prison, and OpenSSL are required.
+KDE Notifications, StatusNotifierItem, Prison and GuiAddons, and OpenSSL are required.
+Minimum versions: Qt 6.8, KDE Frameworks 6.0, OpenSSL 3.0.
 
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_INSTALL_PREFIX="$HOME/.local" \
@@ -72,3 +88,17 @@ Additional test dependencies: `qt6-declarative ki18n plasma-workspace dbus
 python-cryptography`. Configure with `-DBUILD_TESTING=ON`, then run `ctest` and the
 independent Python peers as described in the README. Tests load notification
 configuration from the build tree and do not require a previous installation.
+
+## Native packages
+
+Build from a clean source tree on the distribution you are packaging for, using
+`-DCMAKE_INSTALL_PREFIX=/usr -DBUILD_TESTING=ON`, then run the tests. In the build
+directory, `cpack -G DEB` produces a Debian/Ubuntu package with automatic shared
+library dependencies (`file` and `dpkg-dev` are required); `cpack -G RPM` produces a Fedora RPM (`rpm-build` required).
+Runtime Qt SVG/Wayland plugins are explicitly included in dependencies. These
+packages are distribution builds, not universally portable binaries.
+
+The Arch `PKGBUILD` downloads the matching release archive and verifies SHA-256.
+The optional Plasma 6.8 clipboard-QML test requires extra packages and must be
+explicitly enabled with `-DBUILD_PLASMA_CLIPBOARD_TESTS=ON`; normal GUI/core tests
+only require Qt Test, a session D-Bus and Python 3 with `cryptography`.

@@ -1,4 +1,4 @@
-name: Build and protocol tests
+name: Build and compatibility tests
 
 on:
   push:
@@ -10,29 +10,58 @@ permissions:
   contents: read
 
 jobs:
-  arch-linux:
+  linux:
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
-    container: archlinux:base-devel
-    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Arch + Plasma clipboard overlay
+            image: archlinux:base-devel
+            overlay: 'ON'
+            deps: pacman -Syu --noconfirm --needed git cmake ninja qt6-base qt6-svg qt6-wayland qt6-declarative qt6-tools openssl knotifications kstatusnotifieritem prison kguiaddons ki18n plasma-workspace dbus python-cryptography appstream
+            python: python
+          - name: Debian 13 / Qt 6.8 / KF 6.13
+            image: debian:13
+            overlay: 'OFF'
+            deps: apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git file desktop-file-utils build-essential cmake ninja-build qt6-base-dev qt6-svg-dev qt6-wayland qt6-tools-dev qt6-tools-dev-tools libssl-dev libkf6notifications-dev libkf6statusnotifieritem-dev libkf6prison-dev libkf6guiaddons-dev dbus-daemon python3-cryptography appstream
+            python: python3
+          - name: Ubuntu 26.04
+            image: ubuntu:26.04
+            overlay: 'OFF'
+            deps: apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git file desktop-file-utils build-essential cmake ninja-build qt6-base-dev qt6-svg-dev qt6-wayland qt6-tools-dev qt6-tools-dev-tools libssl-dev libkf6notifications-dev libkf6statusnotifieritem-dev libkf6prison-dev libkf6guiaddons-dev dbus-daemon python3-cryptography appstream
+            python: python3
+          - name: Fedora 43
+            image: registry.fedoraproject.org/fedora:43
+            overlay: 'OFF'
+            deps: dnf install -y git desktop-file-utils gcc-c++ cmake ninja-build qt6-qtbase-devel qt6-qtsvg-devel qt6-qtwayland qt6-qttools-devel openssl-devel kf6-knotifications-devel kf6-kstatusnotifieritem-devel kf6-prison-devel kf6-kguiaddons-devel dbus-daemon python3-cryptography appstream rpm-build
+            python: python3
+    container: ${{ matrix.image }}
+    timeout-minutes: 30
     steps:
       - name: Install build and test dependencies
-        run: >-
-          pacman -Syu --noconfirm --needed git cmake ninja
-          qt6-base qt6-svg qt6-declarative qt6-tools openssl
-          knotifications kstatusnotifieritem prison kguiaddons ki18n
-          plasma-workspace dbus python-cryptography
+        run: ${{ matrix.deps }}
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build
         run: |
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_TESTING=ON
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_TESTING=ON -DBUILD_PLASMA_CLIPBOARD_TESTS=${{ matrix.overlay }}
           cmake --build build --parallel 2
-      - name: Test core, GUI and clipboard integration
+      - name: Test core, GUI and installers
         run: ctest --test-dir build --output-on-failure
       - name: Test independent encrypted sender and receiver
         run: |
-          python tests/fake_sender.py --binary build/kquickshare-cli -v
-          python tests/fake_receiver.py --binary build/kquickshare-send -v
+          ${{ matrix.python }} tests/fake_sender.py --binary build/kquickshare-cli -v
+          ${{ matrix.python }} tests/fake_receiver.py --binary build/kquickshare-send -v
+      - name: Validate software-center metadata
+        run: appstreamcli validate --no-net packaging/org.kde.kquickshare.metainfo.xml
       - name: Verify the one-command installer
         run: |
           ./install.sh --prefix "$RUNNER_TEMP/kquickshare-install" --no-start --no-deps
           QT_QPA_PLATFORM=offscreen "$RUNNER_TEMP/kquickshare-install/bin/kquickshare" --version
+      - name: Build Debian package
+        if: contains(matrix.image, 'debian') || contains(matrix.image, 'ubuntu')
+        run: cd build && cpack -G DEB
+      - name: Build Fedora package
+        if: contains(matrix.image, 'fedora')
+        run: cd build && cpack -G RPM

@@ -1,9 +1,20 @@
 #!/bin/sh
 set -eu
 base=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+# This overlay replaces private QML, so refuse unverified Plasma series before
+# writing anything. Ordinary sending/receiving does not require this integration.
+version=$(plasmashell --version 2>/dev/null | awk '$1 == "plasmashell" { print $2 }')
+case "$version" in
+    6.8.[0-9]*) ;;
+    *) printf 'The clipboard-history overlay supports Plasma 6.8.x only (found: %s). Use the tray/Dolphin actions instead.\n' "${version:-unknown}" >&2; exit 1 ;;
+esac
 target="${XDG_DATA_HOME:-$HOME/.local/share}/kquickshare/qml"
 module="$target/org/kde/plasma/private/clipboard"
-qtqml=$(qmake6 -query QT_INSTALL_QML)
+if command -v qtpaths6 >/dev/null 2>&1; then
+    qtqml=$(qtpaths6 --query QT_INSTALL_QML)
+else
+    qtqml=$(qmake6 -query QT_INSTALL_QML)
+fi
 plugin="$qtqml/org/kde/plasma/private/clipboard/libklipperplugin.so"
 [ -f "$plugin" ] || { printf 'Plasma Clipboard QML module not found: %s\n' "$plugin" >&2; exit 1; }
 mkdir -p "$module"

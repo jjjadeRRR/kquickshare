@@ -2,6 +2,8 @@
 
 # KQuickShare
 
+[![Build and compatibility tests](https://github.com/jjjadeRRR/kquickshare/actions/workflows/build.yml/badge.svg)](https://github.com/jjjadeRRR/kquickshare/actions/workflows/build.yml)
+
 **Native Quick Share for KDE Plasma. Send files and text to Android, and receive files in your tray.**
 
 **English** · [Русский](README.ru.md)
@@ -26,9 +28,30 @@ Quick Share over your local network; no companion Android app is needed.
 
 The interface follows the system’s language preferences: Russian or English,
 with English as the fallback for other languages. Restart the application after
-changing your desktop language. Tested on Arch Linux,
-KDE Plasma 6.8 and a Pixel 7 Pro, in both directions. Other Android devices and
-Plasma releases need wider testing.
+changing your desktop language.
+
+## Distributions and Plasma versions
+
+The main application targets **Plasma 6**, Qt **6.8+** and KDE Frameworks **6.0+**.
+The source installer understands Arch, Debian/Ubuntu, Fedora and openSUSE package
+families. Debian 13 and Fedora 43 are checked in clean containers alongside Arch;
+Ubuntu 26.04 is included in CI. Real-phone tests so far are mainly Arch/Plasma 6.8
+with a Pixel 7 Pro. Plasma 5 is not supported.
+
+[Compatibility, firewall and tested scope](docs/COMPATIBILITY.md) ·
+[Report a problem](https://github.com/jjjadeRRR/kquickshare/issues/new/choose) ·
+[Contribute a test or translation](CONTRIBUTING.md)
+
+![KQuickShare settings](docs/images/settings-en.png)
+
+## Native packages
+
+[Releases](https://github.com/jjjadeRRR/kquickshare/releases) include a source
+archive and distribution-specific packages. Choose the package matching your
+system; a Debian 13 `.deb` is not a universal Ubuntu package, and a Fedora 43 RPM
+is not an openSUSE package. If no matching package is available, use the source
+installer below. Packages do not enable autostart, firewall rules or the private
+clipboard-history overlay automatically.
 
 ## Arch Linux package
 
@@ -52,8 +75,8 @@ open a terminal in the extracted folder and run **one command**:
 ./install.sh
 ```
 
-On Arch Linux, the installer checks build dependencies and asks `pacman` to
-install missing packages (using sudo when needed). It builds the application,
+The installer detects the package family and checks build dependencies. It asks
+the native package manager to install missing packages (using sudo when needed). It builds the application,
 installs it for your user in `~/.local` and starts it in your desktop session.
 Run it as your normal desktop user, without sudo. Installing missing dependencies
 may ask for your administrator password; the application itself runs as your user.
@@ -64,8 +87,8 @@ choose Exit in the tray menu to stop it. Running `./install.sh` again updates th
 application and restarts it; finish current transfers before updating.
 
 The installer does not enable the optional clipboard overlay automatically.
-Other distributions need Qt 6 and KDE Frameworks development packages installed
-first. See [manual build instructions](docs/BUILDING.md) for custom prefixes,
+Unsupported package families need the development dependencies installed first;
+then use `./install.sh --no-deps`. See [manual build instructions](docs/BUILDING.md) for custom prefixes,
 headless installation and build dependencies.
 
 ## Receive from Android
@@ -95,7 +118,8 @@ The receive screen in Files by Google is another discovery option.
 The transport is LAN-only. Bluetooth is not required; BLE activation, Wi-Fi
 Direct, internet transfer and Google-account contact discovery are not implemented.
 Wi-Fi client isolation, multicast filtering or a firewall can prevent discovery
-or connections. Discovery uses UDP 5353 and transfers use a dynamically assigned TCP port.
+or connections. Discovery uses UDP 5353 and reception defaults to TCP 53318 (configurable in
+Settings). See the [firewall instructions](docs/COMPATIBILITY.md#network-and-firewall).
 
 ## Received photos and text
 
@@ -143,7 +167,7 @@ adjacent `uninstall-clipboard.sh` and restart Plasma Shell. See
 
 ```sh
 sudo pacman -S --needed qt6-declarative ki18n plasma-workspace python-cryptography
-cmake -S . -B build -G Ninja -DBUILD_TESTING=ON
+cmake -S . -B build -G Ninja -DBUILD_TESTING=ON -DBUILD_PLASMA_CLIPBOARD_TESTS=ON
 cmake --build build
 ctest --test-dir build --output-on-failure
 python tests/fake_sender.py --binary build/kquickshare-cli -v

@@ -43,12 +43,12 @@ NearbyServer::~NearbyServer()
     stop();
 }
 
-bool NearbyServer::start(const QString &deviceName, DeviceType deviceType)
+bool NearbyServer::start(const QString &deviceName, DeviceType deviceType, quint16 listenPort)
 {
     stop();
 
     m_tcpServer = new QTcpServer(this);
-    if (!m_tcpServer->listen(QHostAddress::AnyIPv4, 0)) {
+    if (!m_tcpServer->listen(QHostAddress::AnyIPv4, listenPort)) {
         emit errorOccurred(tr("Не удалось открыть TCP-порт: %1").arg(m_tcpServer->errorString()));
         stop();
         return false;

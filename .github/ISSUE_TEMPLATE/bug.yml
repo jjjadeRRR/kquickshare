@@ -1,0 +1,42 @@
+name: Bug report
+description: Help us reproduce a KQuickShare problem.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: input
+    id: versions
+    attributes:
+      label: Distribution and versions
+      description: Include KQuickShare, distribution, Plasma, Qt and session (Wayland/X11) versions.
+      placeholder: KQuickShare 0.4.0, Debian 13, Plasma 6.3, Qt 6.8, Wayland
+    validations:
+      required: true
+  - type: input
+    id: phone
+    attributes:
+      label: Phone and Android version
+      placeholder: Pixel 7 Pro, Android 16
+  - type: dropdown
+    id: direction
+    attributes:
+      label: Affected operation
+      options:
+        - Phone to computer
+        - Computer to phone
+        - Installation or startup
+        - Clipboard or Dolphin integration
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps, expected result and actual result
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Use journalctl --user -u org.kde.kquickshare.service. Remove private text, filenames, device names and IP addresses before posting. Never attach secrets or personal clipboard history.
+      render: text
