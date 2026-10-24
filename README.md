@@ -96,8 +96,8 @@ headless installation and build dependencies.
 1. Connect the computer and phone to the same LAN. Ethernet on the PC is fine.
 2. Start KQuickShare and choose Share → Quick Share on Android.
 3. Select the computer, compare the PIN and accept on the PC.
-4. Files appear in `~/Downloads`. Received photos and text are also copied to the
-   clipboard by default. Links are never opened automatically.
+4. Files appear in `~/Downloads`. Received text is also copied to the clipboard by default.
+   Photos are saved as files. Links are never opened automatically.
 
 For automatic reception, check the trust option in the incoming transfer card
 **before** accepting. Remove a device from the Trusted devices tab to revoke it.
@@ -121,11 +121,10 @@ Wi-Fi client isolation, multicast filtering or a firewall can prevent discovery
 or connections. Discovery uses UDP 5353 and reception defaults to TCP 53318 (configurable in
 Settings). See the [firewall instructions](docs/COMPATIBILITY.md#network-and-firewall).
 
-## Received photos and text
+## Received text
 
-The **Settings** tab has three independent options, all enabled by default:
+The **Settings** tab has two independent options, all enabled by default:
 
-- **Copy received photos to the clipboard**.
 - **Copy received text to the clipboard**.
 - **Save received text as a file**.
 
@@ -135,11 +134,10 @@ Click **Apply** to save your choices. Text includes Quick Share text messages
 text options discards received text. Photos and other files always remain in
 `~/Downloads`.
 
-The clipboard changes only after a successful transfer. With multiple attachments,
-the last processed eligible attachment remains in the clipboard. Images are copied
-as images and text as text, rather than file paths. Images above 32 megapixels are
-saved without clipboard copying; invalid or oversized `.txt` files are preserved
-as ordinary files.
+The clipboard changes only after a successful text transfer. If several text
+attachments arrive, the last processed text remains in the clipboard. Photos
+are saved in Downloads and never change the clipboard. Invalid or oversized
+`.txt` files are preserved as ordinary files.
 
 ## Optional clipboard-history button (Plasma 6.8)
 

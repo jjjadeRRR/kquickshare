@@ -429,7 +429,7 @@
 <context>
     <name>Receiver</name>
     <message>
-        <location filename="../src/app/receiver.cpp" line="86"/>
+        <location filename="../src/app/receiver.cpp" line="85"/>
         <source>Готово к передаче
 
 На телефоне выберите файл → Поделиться → Quick Share → имя этого компьютера.
@@ -442,18 +442,18 @@ On your phone, select a file → Share → Quick Share → this computer’s nam
 The phone and computer must be on the same local network.</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="91"/>
+        <location filename="../src/app/receiver.cpp" line="90"/>
         <source>Передачи</source>
         <translation>Transfers</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="95"/>
-        <location filename="../src/app/receiver.cpp" line="210"/>
+        <location filename="../src/app/receiver.cpp" line="94"/>
+        <location filename="../src/app/receiver.cpp" line="213"/>
         <source>Принимать файлы</source>
         <translation>Receive files</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="100"/>
+        <location filename="../src/app/receiver.cpp" line="99"/>
         <source>Имя компьютера:</source>
         <translation>Computer name:</translation>
     </message>
@@ -484,255 +484,250 @@ The phone and computer must be on the same local network.</translation>
     </message>
     <message>
         <location filename="../src/app/receiver.cpp" line="127"/>
-        <source>Добавлять полученные фото в буфер обмена</source>
-        <translation>Copy received photos to the clipboard</translation>
-    </message>
-    <message>
-        <location filename="../src/app/receiver.cpp" line="128"/>
         <source>Добавлять полученный текст в буфер обмена</source>
         <translation>Copy received text to the clipboard</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="129"/>
+        <location filename="../src/app/receiver.cpp" line="128"/>
         <source>Сохранять текст в виде файла</source>
         <translation>Save received text as a file</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="130"/>
+        <location filename="../src/app/receiver.cpp" line="129"/>
         <source>Общий текст Quick Share и файлы .txt в UTF-8 до 5 МиБ. Фото всегда сохраняются в Downloads. Если обе настройки текста выключены, текст будет отброшен.</source>
         <translation>Shared Quick Share text and UTF-8 .txt files up to 5 MiB. Photos are always saved in Downloads. If both text options are disabled, received text is discarded.</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="131"/>
+        <location filename="../src/app/receiver.cpp" line="130"/>
         <source>Применить</source>
         <translation>Apply</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="134"/>
+        <location filename="../src/app/receiver.cpp" line="133"/>
         <source>Компьютер виден всем в локальной сети, пока приём включён. Для незнакомых устройств всегда требуется подтверждение с PIN-кодом.</source>
         <translation>The computer is visible to everyone on the local network while reception is enabled. Unknown devices always require approval with a PIN.</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="136"/>
+        <location filename="../src/app/receiver.cpp" line="140"/>
         <source>Настройки</source>
         <translation>Settings</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="139"/>
+        <location filename="../src/app/receiver.cpp" line="143"/>
         <source>Доверенные устройства</source>
         <translation>Trusted devices</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="140"/>
+        <location filename="../src/app/receiver.cpp" line="144"/>
         <source>Автоприём привязан к имени, типу устройства и IP-адресу. Это удобство для домашней сети, а не проверка ключа телефона. Адрес и имя могут быть подменены. При смене IP потребуется новое подтверждение.</source>
         <translation>Automatic reception matches the device name, type and IP address. This is a convenience for a trusted LAN, not verification of the phone’s key. Names and addresses can be spoofed. A new IP address requires approval again.</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="145"/>
+        <location filename="../src/app/receiver.cpp" line="149"/>
         <source>Удалить из доверенных</source>
         <translation>Remove from trusted devices</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="147"/>
+        <location filename="../src/app/receiver.cpp" line="151"/>
         <source>Доверенные</source>
         <translation>Trusted</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="150"/>
-        <location filename="../src/app/receiver.cpp" line="220"/>
+        <location filename="../src/app/receiver.cpp" line="154"/>
+        <location filename="../src/app/receiver.cpp" line="223"/>
         <source>Отправить файлы…</source>
         <translation>Send files…</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="151"/>
-        <location filename="../src/app/receiver.cpp" line="221"/>
+        <location filename="../src/app/receiver.cpp" line="155"/>
+        <location filename="../src/app/receiver.cpp" line="224"/>
         <source>Отправить текст из буфера…</source>
         <translation>Send clipboard text…</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="154"/>
+        <location filename="../src/app/receiver.cpp" line="158"/>
         <source>Отправить на телефон</source>
         <translation>Send to phone</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="159"/>
-        <location filename="../src/app/receiver.cpp" line="208"/>
+        <location filename="../src/app/receiver.cpp" line="163"/>
+        <location filename="../src/app/receiver.cpp" line="211"/>
         <source>Открыть папку загрузок</source>
         <translation>Open downloads folder</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="167"/>
+        <location filename="../src/app/receiver.cpp" line="171"/>
         <source>Дождитесь завершения передач</source>
         <translation>Wait for transfers to finish</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="168"/>
+        <location filename="../src/app/receiver.cpp" line="172"/>
         <source>Настройки можно изменить после завершения или отмены текущих передач.</source>
         <translation>You can change settings after finishing or cancelling current transfers.</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="189"/>
+        <location filename="../src/app/receiver.cpp" line="192"/>
         <source>Не удалось включить автозапуск</source>
         <translation>Could not enable startup at login</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="191"/>
+        <location filename="../src/app/receiver.cpp" line="194"/>
         <source>Не удалось отключить автозапуск</source>
         <translation>Could not disable startup at login</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="207"/>
+        <location filename="../src/app/receiver.cpp" line="210"/>
         <source>Передачи и настройки…</source>
         <translation>Transfers and settings…</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="223"/>
+        <location filename="../src/app/receiver.cpp" line="226"/>
         <source>Выйти</source>
         <translation>Exit</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="487"/>
+        <location filename="../src/app/receiver.cpp" line="490"/>
         <source>Не удалось удалить текстовый файл: %1</source>
         <translation>Could not remove text file: %1</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="511"/>
+        <location filename="../src/app/receiver.cpp" line="499"/>
         <source>Получено. Сохранено файлов: %1</source>
         <translation>Received. Files saved: %1</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="513"/>
+        <location filename="../src/app/receiver.cpp" line="501"/>
         <source> · Добавлено в буфер обмена</source>
         <translation> · Copied to the clipboard</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="289"/>
+        <location filename="../src/app/receiver.cpp" line="292"/>
         <source>Приём приостановлен</source>
         <translation>Reception paused</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="291"/>
+        <location filename="../src/app/receiver.cpp" line="294"/>
         <source>В сети · %1</source>
         <translation>Online · %1</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="292"/>
+        <location filename="../src/app/receiver.cpp" line="295"/>
         <source>Активных передач: %1</source>
         <translation>Active transfers: %1</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="309"/>
+        <location filename="../src/app/receiver.cpp" line="312"/>
         <source>Открыть KQuickShare</source>
         <translation>Open KQuickShare</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="342"/>
+        <location filename="../src/app/receiver.cpp" line="345"/>
         <source>
 …и ещё %1</source>
         <translation>
 …and %1 more</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="343"/>
+        <location filename="../src/app/receiver.cpp" line="346"/>
         <source>Сверьте PIN-код с телефоном и подтвердите приём.</source>
         <translation>Compare the PIN with your phone and approve reception.</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="353"/>
+        <location filename="../src/app/receiver.cpp" line="356"/>
         <source>Доверять этому устройству в домашней сети</source>
         <translation>Trust this device on my home network</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="354"/>
+        <location filename="../src/app/receiver.cpp" line="357"/>
         <source>Автоприём по имени, типу и IP-адресу. Без проверки постоянного ключа телефона.</source>
         <translation>Automatic reception matches the name, type and IP address. The phone’s persistent key is not verified.</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="358"/>
-        <location filename="../src/app/receiver.cpp" line="405"/>
+        <location filename="../src/app/receiver.cpp" line="361"/>
+        <location filename="../src/app/receiver.cpp" line="408"/>
         <source>Принять</source>
         <translation>Accept</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="359"/>
-        <location filename="../src/app/receiver.cpp" line="411"/>
+        <location filename="../src/app/receiver.cpp" line="362"/>
+        <location filename="../src/app/receiver.cpp" line="414"/>
         <source>Отклонить</source>
         <translation>Reject</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="366"/>
+        <location filename="../src/app/receiver.cpp" line="369"/>
         <source>Отменить передачу</source>
         <translation>Cancel transfer</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="393"/>
+        <location filename="../src/app/receiver.cpp" line="396"/>
         <source>Получено %1 из %2</source>
         <translation>Received %1 of %2</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="398"/>
+        <location filename="../src/app/receiver.cpp" line="401"/>
         <source>Приём от «%1»</source>
         <translation>Receiving from «%1»</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="399"/>
+        <location filename="../src/app/receiver.cpp" line="402"/>
         <source>Автоматический приём · %1</source>
         <translation>Automatic reception · %1</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="402"/>
+        <location filename="../src/app/receiver.cpp" line="405"/>
         <source>«%1» отправляет файлы</source>
         <translation>«%1» is sending files</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="403"/>
+        <location filename="../src/app/receiver.cpp" line="406"/>
         <source>PIN %1 · %2
 Сверьте код на телефоне.</source>
         <translation>PIN %1 · %2
 Compare the code on your phone.</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="431"/>
+        <location filename="../src/app/receiver.cpp" line="434"/>
         <source>Получение…</source>
         <translation>Receiving…</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="463"/>
+        <location filename="../src/app/receiver.cpp" line="466"/>
         <source>Не удалось сохранить текст на диск</source>
         <translation>Could not save the text to disk</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="528"/>
+        <location filename="../src/app/receiver.cpp" line="516"/>
         <source>Получено от «%1»</source>
         <translation>Received from «%1»</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="528"/>
+        <location filename="../src/app/receiver.cpp" line="516"/>
         <source>Передача от «%1» завершена</source>
         <translation>Transfer from «%1» ended</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="531"/>
+        <location filename="../src/app/receiver.cpp" line="519"/>
         <source>Открыть папку</source>
         <translation>Open folder</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="541"/>
+        <location filename="../src/app/receiver.cpp" line="529"/>
         <source>Нужны локальные файлы</source>
         <translation>Local files are required</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="541"/>
+        <location filename="../src/app/receiver.cpp" line="529"/>
         <source>Сначала сохраните файл на компьютер.</source>
         <translation>Save the file to your computer first.</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="548"/>
+        <location filename="../src/app/receiver.cpp" line="536"/>
         <source>Буфер обмена пуст</source>
         <translation>The clipboard is empty</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="548"/>
+        <location filename="../src/app/receiver.cpp" line="536"/>
         <source>Скопируйте текст перед отправкой.</source>
         <translation>Copy some text before sending.</translation>
     </message>

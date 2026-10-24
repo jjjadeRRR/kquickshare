@@ -60,7 +60,6 @@ class Receiver : public QMainWindow {
     QSpinBox *m_port;
     QCheckBox *m_enabled;
     QCheckBox *m_autostart;
-    QCheckBox *m_copyImages;
     QCheckBox *m_copyText;
     QCheckBox *m_saveText;
     QListWidget *m_trusted;

@@ -30,7 +30,6 @@
 #include <QSpinBox>
 #include <QTabWidget>
 #include <QTimer>
-#include <QImageReader>
 #include <QStringDecoder>
 #include <QTemporaryFile>
 #include <QUrl>
@@ -125,7 +124,6 @@ Receiver::Receiver(const QString &destinationOverride)
         form->addRow(box);
         return box;
     };
-    m_copyImages = option(tr("Добавлять полученные фото в буфер обмена"), "copyReceivedImages");
     m_copyText = option(tr("Добавлять полученный текст в буфер обмена"), "copyReceivedText");
     m_saveText = option(tr("Сохранять текст в виде файла"), "saveReceivedText");
     m_saveText->setToolTip(tr("Общий текст Quick Share и файлы .txt в UTF-8 до 5 МиБ. Фото всегда сохраняются в Downloads. Если обе настройки текста выключены, текст будет отброшен."));
@@ -184,7 +182,6 @@ Receiver::Receiver(const QString &destinationOverride)
         m_settings.setValue("listenPort", m_port->value());
 
         m_settings.setValue("enabled", m_enabled->isChecked());
-        m_settings.setValue("copyReceivedImages", m_copyImages->isChecked());
         m_settings.setValue("copyReceivedText", m_copyText->isChecked());
         m_settings.setValue("saveReceivedText", m_saveText->isChecked());
         if (m_autostart->isChecked()) {
@@ -496,22 +493,7 @@ void Receiver::finish(InboundConnection *conn, const QStringList &files, const Q
                     }
                 }
             }
-            if (m_settings.value("copyReceivedImages", true).toBool()) {
-                QImageReader reader(path);
-                reader.setDecideFormatFromContent(true);
-                reader.setAutoTransform(true);
-                const auto size = reader.size();
-                // Bound decoded memory; large/unrecognized images remain available on disk.
-                if (size.isValid() && qint64(size.width()) * size.height() <= 32 * 1024 * 1024) {
-                    const auto image = reader.read();
-                    if (!image.isNull()) {
-                        auto *mime = new QMimeData;
-                        mime->setImageData(image);
-                        KSystemClipboard::instance()->setMimeData(mime, QClipboard::Clipboard);
-                        copied = true;
-                    }
-                }
-            }
+
         }
     }
     QString result = tr("Получено. Сохранено файлов: %1").arg(savedFiles.size());

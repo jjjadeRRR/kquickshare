@@ -52,10 +52,6 @@ class Notifications : public QObject {
 static Notifications *notifications;
 
 namespace {
-QImage clipboardImage() {
-    const auto *mime = KSystemClipboard::instance()->mimeData(QClipboard::Clipboard);
-    return mime ? qvariant_cast<QImage>(mime->imageData()) : QImage();
-}
 QByteArray receiverAnnouncement(quint16 port) {
     auto name = [](const QString &value) {
         QByteArray result;
@@ -160,7 +156,8 @@ class GuiTests : public QObject {
         QSettings settings;
         settings.clear();
         settings.setValue("listenPort", 0);
-        settings.setValue("copyReceivedImages", kind == "image" ? copy : !copy);
+        // Legacy preference must not re-enable image clipboard handling.
+        settings.setValue("copyReceivedImages", true);
         settings.setValue("copyReceivedText", kind == "image" ? !copy : copy);
         settings.setValue("saveReceivedText", save);
         settings.sync();
@@ -216,15 +213,8 @@ class GuiTests : public QObject {
         QCOMPARE(sender.exitCode(), 0);
         QTRY_COMPARE_WITH_TIMEOUT(completed.count(), 1, 8000);
         QCOMPARE(completed.first().at(2).toString().isEmpty(), kind != "truncated");
-        if (kind == "image" && copy) {
-            QTRY_VERIFY(!clipboardImage().isNull());
-            const auto image = clipboardImage();
-            QCOMPARE(image.size(), QSize(3, 2));
-            QCOMPARE(image.pixelColor(0, 0), QColor(20, 100, 180));
-        } else {
-            QTRY_COMPARE(KSystemClipboard::instance()->text(QClipboard::Clipboard),
-                copy && (kind == "text" || kind == "txt") ? text : QString("existing clipboard"));
-        }
+        QCOMPARE(KSystemClipboard::instance()->text(QClipboard::Clipboard),
+            copy && (kind == "text" || kind == "txt") ? text : QString("existing clipboard"));
         auto files = QDir(downloads.path()).entryList(QDir::Files | QDir::NoDotAndDotDot);
         if (kind == "txt") {
             QVERIFY(files.removeOne("shared.txt"));
@@ -246,7 +236,7 @@ class GuiTests : public QObject {
         QSettings settings;
         settings.clear();
         settings.setValue("listenPort", 0);
-        const QStringList keys{"copyReceivedImages", "copyReceivedText", "saveReceivedText"};
+        const QStringList keys{"copyReceivedText", "saveReceivedText"};
         {
             Receiver defaults(downloads.path());
             for (const auto &key : keys)

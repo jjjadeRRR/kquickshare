@@ -5,7 +5,7 @@
 I made KQuickShare, a small native Quick Share application for KDE Plasma 6.
 It sends and receives files using Android's built-in Quick Share, with a tray icon,
 KDE notifications, a Dolphin action and optional automatic reception from trusted
-devices. Received photos and text can go straight to the clipboard.
+devices. Received text can go straight to the clipboard; photos are saved as files.
 
 The source installer supports Arch, Debian/Ubuntu, Fedora and openSUSE package
 families. The repository includes compatibility tests, native packaging and a
@@ -25,7 +25,7 @@ https://github.com/jjjadeRRR/kquickshare
 Сделал KQuickShare — небольшую нативную программу Quick Share для KDE Plasma 6.
 Она отправляет и принимает файлы через встроенный Quick Share на Android:
 есть трей, уведомления KDE, отправка из Dolphin и автоприём от доверенных устройств.
-Полученные фото и текст можно автоматически добавлять в буфер обмена.
+Полученный текст можно автоматически добавлять в буфер обмена; фото сохраняются в файлы.
 
 Установщик поддерживает семейства Arch, Debian/Ubuntu, Fedora и openSUSE.
 В репозитории есть проверки совместимости, сборка пакетов и список реально

@@ -8,7 +8,7 @@ KDE Frameworks >= 6.0, OpenSSL >= 3.0 and a C++20 compiler.
 
 | Environment | Scope |
 |---|---|
-| Arch Linux, Plasma 6.8, Wayland, Pixel 7 Pro | Real desktop and phone testing in both directions; background text/image clipboard checks |
+| Arch Linux, Plasma 6.8, Wayland, Pixel 7 Pro | Real desktop and phone testing in both directions; background text clipboard checks |
 | Debian 13, Qt 6.8, KF 6.13 | Clean container build, GUI/core/installer tests and independent encrypted protocol peers |
 | Fedora 43 | Clean container build, GUI/core/installer tests, protocol peers and native RPM packaging |
 | Ubuntu 26.04 | CI build/test target; desktop/phone reports welcome |
