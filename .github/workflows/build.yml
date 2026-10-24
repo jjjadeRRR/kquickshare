@@ -25,12 +25,12 @@ jobs:
           - name: Debian 13 / Qt 6.8 / KF 6.13
             image: debian:13
             overlay: 'OFF'
-            deps: apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git file desktop-file-utils build-essential cmake ninja-build qt6-base-dev qt6-svg-dev qt6-wayland qt6-tools-dev qt6-tools-dev-tools libssl-dev libkf6notifications-dev libkf6statusnotifieritem-dev libkf6prison-dev libkf6guiaddons-dev dbus-daemon python3-cryptography appstream
+            deps: apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates git file desktop-file-utils build-essential cmake ninja-build qt6-base-dev qt6-svg-dev qt6-wayland qt6-tools-dev qt6-tools-dev-tools libssl-dev libkf6notifications-dev libkf6statusnotifieritem-dev libkf6prison-dev libkf6guiaddons-dev dbus-daemon python3-cryptography appstream
             python: python3
           - name: Ubuntu 26.04
             image: ubuntu:26.04
             overlay: 'OFF'
-            deps: apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git file desktop-file-utils build-essential cmake ninja-build qt6-base-dev qt6-svg-dev qt6-wayland qt6-tools-dev qt6-tools-dev-tools libssl-dev libkf6notifications-dev libkf6statusnotifieritem-dev libkf6prison-dev libkf6guiaddons-dev dbus-daemon python3-cryptography appstream
+            deps: apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates git file desktop-file-utils build-essential cmake ninja-build qt6-base-dev qt6-svg-dev qt6-wayland qt6-tools-dev qt6-tools-dev-tools libssl-dev libkf6notifications-dev libkf6statusnotifieritem-dev libkf6prison-dev libkf6guiaddons-dev dbus-daemon python3-cryptography appstream
             python: python3
           - name: Fedora 43
             image: registry.fedoraproject.org/fedora:43
