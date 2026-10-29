@@ -12,7 +12,8 @@ QByteArray EndpointInfo::serialize(const QString &name, DeviceType type)
     // Keep endpoint info <= 189 bytes and preserve complete UTF-8 codepoints.
     if (nameUtf8.size() > 168) {
         int end = 168;
-        while (end > 0 && (quint8(nameUtf8[end]) & 0xc0) == 0x80) --end;
+        while (end > 0 && (quint8(nameUtf8[end]) & 0xc0) == 0x80)
+            --end;
         nameUtf8.truncate(end);
     }
     out.append(char(nameUtf8.size()));
@@ -29,7 +30,8 @@ bool EndpointInfo::parse(const QByteArray &data, EndpointInfo &out)
     out.deviceType = DeviceType((b0 >> 1) & 7);
     int offset = 17;
     if (hasName) {
-        if (data.size() < 18) return false;
+        if (data.size() < 18)
+            return false;
         const int nameLen = uint8_t(data[offset]);
         if (data.size() < offset + 1 + nameLen)
             return false;

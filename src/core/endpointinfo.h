@@ -12,9 +12,10 @@ enum class DeviceType : int {
     Laptop = 3,
 };
 
-struct EndpointInfo {
+struct EndpointInfo
+{
     DeviceType deviceType = DeviceType::Unknown;
-    QString name;       // empty if the device is hidden
+    QString name; // empty if the device is hidden
     QByteArray qrCodeData;
 
     // byte0 = deviceType << 1 (version 0, visible), 16 random bytes, len + name

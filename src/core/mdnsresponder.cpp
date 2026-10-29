@@ -1,12 +1,13 @@
 #include "mdnsresponder.h"
 
 #include <QNetworkInterface>
-#include <QtEndian>
 #include <QTimer>
 #include <QUdpSocket>
 #include <QVariant>
+#include <QtEndian>
 
-namespace {
+namespace
+{
 constexpr quint16 kMdnsPort = 5353;
 const QHostAddress kMdnsGroup(QStringLiteral("224.0.0.251"));
 constexpr int kAnnounceIntervalMs = 60'000;
@@ -19,8 +20,8 @@ QPair<QHostAddress, QNetworkInterface> pickPrimaryIpv4()
     const auto interfaces = QNetworkInterface::allInterfaces();
     for (const QNetworkInterface &iface : interfaces) {
         const auto flags = iface.flags();
-        if (!flags.testFlag(QNetworkInterface::IsUp) || !flags.testFlag(QNetworkInterface::IsRunning)
-            || flags.testFlag(QNetworkInterface::IsLoopBack) || flags.testFlag(QNetworkInterface::IsPointToPoint))
+        if (!flags.testFlag(QNetworkInterface::IsUp) || !flags.testFlag(QNetworkInterface::IsRunning) || flags.testFlag(QNetworkInterface::IsLoopBack)
+            || flags.testFlag(QNetworkInterface::IsPointToPoint))
             continue;
         for (const QNetworkAddressEntry &entry : iface.addressEntries()) {
             const QHostAddress addr = entry.ip();
@@ -39,16 +40,14 @@ QPair<QHostAddress, QNetworkInterface> pickPrimaryIpv4()
 }
 } // namespace
 
-MdnsResponder::MdnsResponder(QString serviceType, QString instanceName, QString hostName,
-                             quint16 port, const QByteArray &txtValue, QObject *parent)
+MdnsResponder::MdnsResponder(QString serviceType, QString instanceName, QString hostName, quint16 port, const QByteArray &txtValue, QObject *parent)
     : QObject(parent)
     , m_serviceType(std::move(serviceType))
     , m_instanceFqdn(std::move(instanceName) + QLatin1Char('.') + m_serviceType)
     , m_hostName(std::move(hostName))
     , m_port(port)
     , m_txtValue(txtValue)
-{
-}
+{ }
 
 MdnsResponder::~MdnsResponder()
 {
@@ -65,8 +64,7 @@ bool MdnsResponder::start()
     m_ipv4 = ipv4;
 
     m_socket = new QUdpSocket(this);
-    if (!m_socket->bind(QHostAddress::AnyIPv4, kMdnsPort,
-                        QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint)) {
+    if (!m_socket->bind(QHostAddress::AnyIPv4, kMdnsPort, QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint)) {
         qWarning("MdnsResponder: bind failed: %s", qPrintable(m_socket->errorString()));
         stop();
         return false;
@@ -187,8 +185,7 @@ void MdnsResponder::onReadyRead()
             pos += 4;
             wantsUnicast = wantsUnicast || (qclass & 0x8000); // QU bit
             const QString lower = qname.toLower();
-            if (lower == m_serviceType.toLower() || lower == m_instanceFqdn.toLower()
-                || lower == m_hostName.toLower()) {
+            if (lower == m_serviceType.toLower() || lower == m_instanceFqdn.toLower() || lower == m_hostName.toLower()) {
                 if (qtype == 12 || qtype == 33 || qtype == 16 || qtype == 1 || qtype == 255) // PTR/SRV/TXT/A/ANY
                     matches = true;
             }
@@ -207,7 +204,7 @@ QByteArray MdnsResponder::buildResponse(quint32 ttl) const
     QByteArray out;
     out.append(QByteArray(12, '\0'));
     out[2] = char(0x84); // QR=1, AA=1
-    out[7] = 4;          // ANCOUNT = 4
+    out[7] = 4; // ANCOUNT = 4
 
     auto appendCommon = [&out, ttl](const QString &name, quint16 type) {
         encodeName(out, name);

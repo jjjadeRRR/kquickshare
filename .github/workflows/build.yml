@@ -65,3 +65,14 @@ jobs:
       - name: Build Fedora package
         if: contains(matrix.image, 'fedora')
         run: cd build && cpack -G RPM
+
+  format:
+    name: Code style
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: Install clang-format
+        run: pacman -Syu --noconfirm --needed clang git
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check formatting
+        run: clang-format --dry-run --Werror src/*/*.cpp src/*/*.h tests/*.cpp

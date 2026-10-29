@@ -2,7 +2,8 @@
 
 #include <QtEndian>
 
-namespace pb {
+namespace pb
+{
 
 void appendVarint(QByteArray &out, uint64_t value)
 {
@@ -19,7 +20,8 @@ static bool readVarint(const QByteArray &data, qsizetype &pos, uint64_t &value)
     int shift = 0;
     while (pos < data.size() && shift < 64) {
         const uint8_t b = uint8_t(data[pos++]);
-        if (shift == 63 && b > 1) return false;
+        if (shift == 63 && b > 1)
+            return false;
         value |= uint64_t(b & 0x7f) << shift;
         if (!(b & 0x80))
             return true;

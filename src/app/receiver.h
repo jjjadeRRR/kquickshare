@@ -15,9 +15,10 @@ class QVBoxLayout;
 class QProgressBar;
 class KStatusNotifierItem;
 class KNotification;
-class Receiver : public QMainWindow {
+class Receiver : public QMainWindow
+{
     Q_OBJECT
-  public:
+public:
     explicit Receiver(const QString &destinationOverride = QString());
     ~Receiver() override;
     void reveal();
@@ -25,11 +26,12 @@ class Receiver : public QMainWindow {
     void sendText(const QString &text);
     QString sendStatus() const;
 
-  protected:
+protected:
     void closeEvent(QCloseEvent *event) override;
 
-  private:
-    struct Transfer {
+private:
+    struct Transfer
+    {
         TransferRequest request;
         QPointer<QWidget> card;
         QPointer<QLabel> status;
@@ -48,8 +50,7 @@ class Receiver : public QMainWindow {
     void startReceiver();
     QString trustKey(const TransferRequest &request) const;
     QString destination() const;
-    KNotification *notify(const QString &event, const QString &title, const QString &body,
-                          bool persistent = false);
+    KNotification *notify(const QString &event, const QString &title, const QString &body, bool persistent = false);
     QString m_destination;
     NearbyServer m_server;
     QSettings m_settings;

@@ -73,8 +73,7 @@ public:
     explicit Activation(Receiver *receiver)
         : QDBusAbstractAdaptor(receiver)
         , m_receiver(receiver)
-    {
-    }
+    { }
 
 public Q_SLOTS:
     QString SendStatus() const
@@ -82,8 +81,7 @@ public Q_SLOTS:
         return m_receiver->sendStatus();
     }
     void Ping()
-    {
-    }
+    { }
     void Show()
     {
         m_receiver->reveal();
@@ -109,8 +107,7 @@ int main(int argc, char **argv)
         qCritical("Could not load the embedded application translations");
         return 1;
     }
-    if (localization::language() == QLatin1String("ru")
-        && qtTranslation.load(QStringLiteral("qtbase_ru"), QLibraryInfo::path(QLibraryInfo::TranslationsPath)))
+    if (localization::language() == QLatin1String("ru") && qtTranslation.load(QStringLiteral("qtbase_ru"), QLibraryInfo::path(QLibraryInfo::TranslationsPath)))
         app.installTranslator(&qtTranslation);
     app.setApplicationName(QStringLiteral("kquickshare"));
     app.setOrganizationName(QStringLiteral("KQuickShare"));

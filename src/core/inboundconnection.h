@@ -14,14 +14,16 @@ class QTcpSocket;
 class QFile;
 class QTimer;
 
-struct IncomingFile {
+struct IncomingFile
+{
     QString name;
     QString mimeType;
     qint64 payloadId = 0;
     qint64 size = 0;
 };
 
-struct TransferRequest {
+struct TransferRequest
+{
     QString deviceName;
     QString peerAddress;
     DeviceType deviceType = DeviceType::Unknown;
@@ -32,13 +34,17 @@ struct TransferRequest {
     qint64 totalBytes = 0;
 };
 
-class InboundConnection : public QObject {
+class InboundConnection : public QObject
+{
     Q_OBJECT
 public:
     explicit InboundConnection(QTcpSocket *socket, QObject *parent = nullptr);
     ~InboundConnection() override;
 
-    QString remoteDeviceName() const { return m_deviceName; }
+    QString remoteDeviceName() const
+    {
+        return m_deviceName;
+    }
 
 public slots:
     // Called by the UI in response to transferRequested.
@@ -71,7 +77,8 @@ private:
         Done,
     };
 
-    struct ReceivingFile {
+    struct ReceivingFile
+    {
         IncomingFile meta;
         QString destPath;
         qint64 bytesTransferred = 0;

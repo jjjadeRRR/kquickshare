@@ -4,14 +4,15 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QRandomGenerator>
-#include <QTemporaryFile>
-#include <QStorageInfo>
 #include <QSet>
-#include <limits>
+#include <QStorageInfo>
 #include <QTcpSocket>
+#include <QTemporaryFile>
 #include <QTimer>
+#include <limits>
 
-namespace {
+namespace
+{
 using frames::kMaxFrameLength;
 constexpr int kConsentTimeoutMs = 120'000;
 
@@ -59,8 +60,7 @@ InboundConnection::InboundConnection(QTcpSocket *socket, QObject *parent)
     connect(m_socket, &QTcpSocket::readyRead, this, &InboundConnection::onReadyRead);
     connect(m_socket, &QTcpSocket::disconnected, this, [this] {
         if (m_state != State::Done) {
-            qWarning("Quick Share inbound disconnected: peer=%s state=%d",
-                     qPrintable(m_socket->peerAddress().toString()), int(m_state));
+            qWarning("Quick Share inbound disconnected: peer=%s state=%d", qPrintable(m_socket->peerAddress().toString()), int(m_state));
             m_error = tr("Connection interrupted");
             m_state = State::Done;
             cleanupFiles(true);
@@ -130,8 +130,7 @@ void InboundConnection::processFrame(const QByteArray &frameData)
 void InboundConnection::processConnectionRequest(const QByteArray &frameData)
 {
     frames::OfflineFrame frame;
-    if (!frames::parseOfflineFrame(frameData, frame)
-        || frame.type != frames::OfflineFrameType::ConnectionRequest) {
+    if (!frames::parseOfflineFrame(frameData, frame) || frame.type != frames::OfflineFrameType::ConnectionRequest) {
         finishWithError(tr("Expected CONNECTION_REQUEST"));
         return;
     }
@@ -233,9 +232,7 @@ void InboundConnection::processUkey2ClientFinish(const QByteArray &frameData)
 void InboundConnection::processConnectionResponse(const QByteArray &frameData)
 {
     frames::OfflineFrame frame;
-    if (!frames::parseOfflineFrame(frameData, frame)
-        || frame.type != frames::OfflineFrameType::ConnectionResponse
-        || frame.connectionResponse != 1) {
+    if (!frames::parseOfflineFrame(frameData, frame) || frame.type != frames::OfflineFrameType::ConnectionResponse || frame.connectionResponse != 1) {
         finishWithError(tr("Expected CONNECTION_RESPONSE"));
         return;
     }
@@ -264,7 +261,8 @@ void InboundConnection::processSecureMessage(const QByteArray &frameData)
         processPayloadTransfer(frame);
         break;
     case frames::OfflineFrameType::KeepAlive:
-        if (!frame.keepAliveAck) sendKeepAliveAck();
+        if (!frame.keepAliveAck)
+            sendKeepAliveAck();
         break;
     case frames::OfflineFrameType::Disconnection:
         finishWithError(tr("The remote device disconnected"));
@@ -321,8 +319,8 @@ void InboundConnection::processSharingFrame(const QByteArray &data)
     // Android sends informational progress and response frames in addition to
     // the negotiated transfer. They do not change receiver consent or state.
     if ((m_state == State::WaitingForUserConsent || m_state == State::ReceivingFiles)
-        && (frame.type == frames::SharingFrameType::ProgressUpdate
-            || frame.type == frames::SharingFrameType::Response)) return;
+        && (frame.type == frames::SharingFrameType::ProgressUpdate || frame.type == frames::SharingFrameType::Response))
+        return;
     if (frame.type == frames::SharingFrameType::Cancel) {
         finishWithError(tr("Cancelled by the sender"));
         return;
@@ -360,8 +358,8 @@ void InboundConnection::processSharingFrame(const QByteArray &data)
                 return;
             }
             for (const frames::FileMeta &meta : frame.files) {
-                if (meta.size < 0 || meta.size > std::numeric_limits<qint64>::max() - request.totalBytes
-                    || ids.contains(meta.payloadId) || meta.name.contains(QChar::Null)) {
+                if (meta.size < 0 || meta.size > std::numeric_limits<qint64>::max() - request.totalBytes || ids.contains(meta.payloadId)
+                    || meta.name.contains(QChar::Null)) {
                     finishWithError(tr("Invalid file metadata"));
                     return;
                 }
@@ -374,8 +372,7 @@ void InboundConnection::processSharingFrame(const QByteArray &data)
                 request.files.append(file);
                 request.totalBytes += meta.size;
             }
-        } else if (frame.texts.size() == 1 && frame.files.isEmpty()
-                   && frame.texts.first().size >= 0 && frame.texts.first().size <= kMaxFrameLength) {
+        } else if (frame.texts.size() == 1 && frame.files.isEmpty() && frame.texts.first().size >= 0 && frame.texts.first().size <= kMaxFrameLength) {
             const frames::TextMeta &meta = frame.texts.first();
             request.textTitle = meta.title;
             request.textType = meta.type;
@@ -451,8 +448,12 @@ void InboundConnection::processFileChunk(const frames::OfflineFrame &frame)
         bool renamed = false;
         for (int attempt = 0; attempt < 100; ++attempt) {
             file.destPath = uniqueDestination(QFileInfo(file.destPath).absolutePath(), file.meta.name);
-            if (file.file->rename(file.destPath)) { renamed = true; break; }
-            if (!QFileInfo::exists(file.destPath)) break;
+            if (file.file->rename(file.destPath)) {
+                renamed = true;
+                break;
+            }
+            if (!QFileInfo::exists(file.destPath))
+                break;
         }
         if (!renamed) {
             finishWithError(tr("Could not save file %1").arg(file.meta.name));
@@ -571,8 +572,7 @@ void InboundConnection::finishTransfer(const QString &error)
     if (m_state == State::Done)
         return;
     if (!error.isEmpty())
-        qWarning("Quick Share inbound error: peer=%s state=%d error=%s",
-                 qPrintable(m_socket->peerAddress().toString()), int(m_state), qPrintable(error));
+        qWarning("Quick Share inbound error: peer=%s state=%d error=%s", qPrintable(m_socket->peerAddress().toString()), int(m_state), qPrintable(error));
     m_error = error;
     m_state = State::Done;
     m_idleTimer->stop();

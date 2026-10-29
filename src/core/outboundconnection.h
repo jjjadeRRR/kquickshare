@@ -6,35 +6,27 @@
 #include <QTcpSocket>
 #include <QTimer>
 
-class OutboundConnection : public QObject {
+class OutboundConnection : public QObject
+{
     Q_OBJECT
-  public:
+public:
     explicit OutboundConnection(QObject *parent = nullptr);
     bool setFiles(const QStringList &paths, QString &error);
     bool setText(const QString &text, QString &error);
     void start(const QHostAddress &address, quint16 port, const QString &localName);
     void cancel();
     void setQrSigningKey(EVP_PKEY *key);
-  signals:
+signals:
     void statusChanged(const QString &status);
     void verificationCode(const QString &pin);
     void progress(qint64 sent, qint64 total);
     void finished(const QString &error);
 
-  private:
-    enum State {
-        Idle,
-        ServerInit,
-        ConnectionResponse,
-        PairedEncryption,
-        PairedResult,
-        Consent,
-        Sending,
-        Completing,
-        Done
-    };
-    struct File {
-        QFile *handle;
+private:
+    enum State { Idle, ServerInit, ConnectionResponse, PairedEncryption, PairedResult, Consent, Sending, Completing, Done };
+    struct File
+    {
+        QFile *handle = nullptr;
         frames::FileMeta meta;
         qint64 offset = 0;
     };

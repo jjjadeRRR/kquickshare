@@ -11,7 +11,8 @@ class MdnsResponder;
 class InboundConnection;
 struct TransferRequest;
 
-class NearbyServer : public QObject {
+class NearbyServer : public QObject
+{
     Q_OBJECT
 public:
     explicit NearbyServer(QObject *parent = nullptr);

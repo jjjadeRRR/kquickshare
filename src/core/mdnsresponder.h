@@ -9,14 +9,14 @@
 class QUdpSocket;
 class QTimer;
 
-class MdnsResponder : public QObject {
+class MdnsResponder : public QObject
+{
     Q_OBJECT
 public:
     // serviceType: "_FC9F5ED42C8A._tcp.local"
     // instanceName: base64url-encoded endpoint id blob
     // hostName: e.g. "mypc.local" (must resolve to ipv4)
-    MdnsResponder(QString serviceType, QString instanceName, QString hostName,
-                  quint16 port, const QByteArray &txtValue, QObject *parent = nullptr);
+    MdnsResponder(QString serviceType, QString instanceName, QString hostName, quint16 port, const QByteArray &txtValue, QObject *parent = nullptr);
     ~MdnsResponder() override;
 
     bool start();

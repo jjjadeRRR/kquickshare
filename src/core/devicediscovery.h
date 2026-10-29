@@ -4,14 +4,16 @@
 #include <QObject>
 #include <QTimer>
 #include <QUdpSocket>
-struct NearbyDevice {
+struct NearbyDevice
+{
     QString id, name;
     QHostAddress address;
     quint16 port = 0;
 };
-class DeviceDiscovery : public QObject {
+class DeviceDiscovery : public QObject
+{
     Q_OBJECT
-  public:
+public:
     explicit DeviceDiscovery(QObject *parent = nullptr);
     bool start();
     void stop();
@@ -19,12 +21,13 @@ class DeviceDiscovery : public QObject {
     QList<NearbyDevice> devices() const;
     static bool decodeName(const QByteArray &packet, int &pos, QString &name);
     void ingest(const QByteArray &packet); // Also used by deterministic packet tests.
-  signals:
+signals:
     void changed();
     void errorOccurred(const QString &error);
 
-  private:
-    struct Record {
+private:
+    struct Record
+    {
         QString host, name;
         quint16 port = 0;
         qint64 expires = 0;

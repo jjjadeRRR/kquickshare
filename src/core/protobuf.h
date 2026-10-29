@@ -8,7 +8,8 @@
 #include <QVector>
 #include <cstdint>
 
-namespace pb {
+namespace pb
+{
 
 enum WireType : uint8_t {
     WT_Varint = 0,
@@ -17,11 +18,12 @@ enum WireType : uint8_t {
     WT_Fixed32 = 5,
 };
 
-struct Field {
+struct Field
+{
     uint32_t number = 0;
     uint8_t wireType = 0;
-    uint64_t varint = 0;   // valid for WT_Varint/WT_Fixed32/WT_Fixed64
-    QByteArray bytes;      // valid for WT_LengthDelimited
+    uint64_t varint = 0; // valid for WT_Varint/WT_Fixed32/WT_Fixed64
+    QByteArray bytes; // valid for WT_LengthDelimited
 };
 
 // Parses a whole protobuf message. Returns false on malformed input.
@@ -34,13 +36,17 @@ bool fieldString(const QVector<Field> &fields, uint32_t number, QString &value, 
 QVector<QByteArray> allBytesFields(const QVector<Field> &fields, uint32_t number);
 
 // Builds a protobuf message field by field.
-class Writer {
+class Writer
+{
 public:
     Writer &varint(uint32_t number, uint64_t value);
     Writer &svarint64(uint32_t number, int64_t value); // two's complement varint
     Writer &bytes(uint32_t number, const QByteArray &value);
     Writer &string(uint32_t number, const QString &value);
-    const QByteArray &data() const { return m_data; }
+    const QByteArray &data() const
+    {
+        return m_data;
+    }
 
 private:
     QByteArray m_data;

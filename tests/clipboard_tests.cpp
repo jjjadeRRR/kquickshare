@@ -7,15 +7,20 @@
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QTest>
-class ClipboardTests : public QObject {
+class ClipboardTests : public QObject
+{
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.kde.kquickshare")
-  public:
+public:
     QString received;
-  public slots:
-    void SendText(const QString &text) { received = text; }
-  private slots:
-    void selectedItemOverDbus() {
+public slots:
+    void SendText(const QString &text)
+    {
+        received = text;
+    }
+private slots:
+    void selectedItemOverDbus()
+    {
         auto bus = QDBusConnection::sessionBus();
         QVERIFY(bus.registerService("org.kde.kquickshare"));
         QVERIFY(bus.registerObject("/Receiver", this, QDBusConnection::ExportAllSlots));
@@ -34,7 +39,8 @@ class ClipboardTests : public QObject {
         bus.unregisterService("org.kde.kquickshare");
     }
 };
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
     QGuiApplication app(argc, argv);
     QDBusConnection::sessionBus().registerService("org.freedesktop.portal.Desktop");
     ClipboardTests tests;

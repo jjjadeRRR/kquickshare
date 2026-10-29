@@ -1,12 +1,11 @@
 #include "receiver.h"
 #include "senddialog.h"
-#include <QClipboard>
-#include <KSystemClipboard>
-#include <QMimeData>
 #include <KNotification>
 #include <KStatusNotifierItem>
+#include <KSystemClipboard>
 #include <QApplication>
 #include <QCheckBox>
+#include <QClipboard>
 #include <QCloseEvent>
 #include <QCryptographicHash>
 #include <QDateTime>
@@ -21,28 +20,35 @@
 #include <QListWidget>
 #include <QLocale>
 #include <QMenu>
+#include <QMimeData>
 #include <QNetworkInterface>
 #include <QProgressBar>
 #include <QPushButton>
 #include <QSaveFile>
 #include <QScrollArea>
-#include <QStandardPaths>
 #include <QSpinBox>
-#include <QTabWidget>
-#include <QTimer>
+#include <QStandardPaths>
 #include <QStringDecoder>
+#include <QTabWidget>
 #include <QTemporaryFile>
+#include <QTimer>
 #include <QUrl>
 
-namespace {
-QString sizeText(qint64 size) { return QLocale().formattedDataSize(size); }
-QLabel *label(const QString &text, QWidget *parent = nullptr) {
+namespace
+{
+QString sizeText(qint64 size)
+{
+    return QLocale().formattedDataSize(size);
+}
+QLabel *label(const QString &text, QWidget *parent = nullptr)
+{
     auto *l = new QLabel(text, parent);
     l->setTextFormat(Qt::PlainText);
     l->setWordWrap(true);
     return l;
 }
-QString networkSignature() {
+QString networkSignature()
+{
     QStringList addresses;
     for (const auto &iface : QNetworkInterface::allInterfaces()) {
         if (!(iface.flags() & QNetworkInterface::IsUp) || (iface.flags() & QNetworkInterface::IsLoopBack))
@@ -57,9 +63,10 @@ QString networkSignature() {
 } // namespace
 
 Receiver::Receiver(const QString &destinationOverride)
-    : m_destination(destinationOverride.isEmpty() ? QStandardPaths::writableLocation(QStandardPaths::DownloadLocation)
-                                                  : destinationOverride),
-      m_server(this), m_tray(new KStatusNotifierItem("kquickshare", this)) {
+    : m_destination(destinationOverride.isEmpty() ? QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) : destinationOverride)
+    , m_server(this)
+    , m_tray(new KStatusNotifierItem("kquickshare", this))
+{
     setWindowTitle("KQuickShare");
     resize(680, 660);
     auto *central = new QWidget(this);
@@ -83,7 +90,8 @@ Receiver::Receiver(const QString &destinationOverride)
     auto *receive = new QWidget;
     m_transfers = new QVBoxLayout(receive);
     m_transfers->setAlignment(Qt::AlignTop);
-    m_empty = label(tr("Ready to share\n\nOn your phone, select a file → Share → Quick Share → this computer’s name.\n\nThe phone and computer must be on the same local network."));
+    m_empty = label(tr(
+        "Ready to share\n\nOn your phone, select a file → Share → Quick Share → this computer’s name.\n\nThe phone and computer must be on the same local network."));
     m_transfers->addWidget(m_empty);
     scroll->setWidget(receive);
     tabs->addTab(scroll, QIcon::fromTheme("folder-download"), tr("Transfers"));
@@ -112,8 +120,7 @@ Receiver::Receiver(const QString &destinationOverride)
     m_port->setToolTip(tr("Allow inbound TCP on this port and mDNS (UDP 5353) in your firewall only on a trusted network. 0 selects a random port."));
     form->addRow(tr("Receive TCP port:"), m_port);
     m_autostart = new QCheckBox(tr("Start when logging in to KDE"));
-    const QString autostartPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) +
-                                  "/autostart/org.kde.kquickshare.desktop";
+    const QString autostartPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/autostart/org.kde.kquickshare.desktop";
     m_autostart->setChecked(QFileInfo::exists(autostartPath));
     form->addRow(m_autostart);
     auto option = [this, form](const QString &title, const char *key) {
@@ -125,11 +132,13 @@ Receiver::Receiver(const QString &destinationOverride)
     };
     m_copyText = option(tr("Copy received text to the clipboard"), "copyReceivedText");
     m_saveText = option(tr("Save received text as a file"), "saveReceivedText");
-    m_saveText->setToolTip(tr("Shared Quick Share text and UTF-8 .txt files up to 5 MiB. Photos are always saved in Downloads. If both text options are disabled, received text is discarded."));
+    m_saveText->setToolTip(tr(
+        "Shared Quick Share text and UTF-8 .txt files up to 5 MiB. Photos are always saved in Downloads. If both text options are disabled, received text is discarded."));
     auto *apply = new QPushButton(QIcon::fromTheme("dialog-ok-apply"), tr("Apply"));
     apply->setObjectName("applySettings");
     form->addRow(apply);
-    form->addRow(label(tr("The computer is visible to everyone on the local network while reception is enabled. Unknown devices always require approval with a PIN.")));
+    form->addRow(
+        label(tr("The computer is visible to everyone on the local network while reception is enabled. Unknown devices always require approval with a PIN.")));
     auto *settingsScroll = new QScrollArea;
     settingsScroll->setWidgetResizable(true);
     settingsScroll->setFrameShape(QFrame::NoFrame);
@@ -139,7 +148,8 @@ Receiver::Receiver(const QString &destinationOverride)
     auto *trustedPage = new QWidget;
     auto *trustedLayout = new QVBoxLayout(trustedPage);
     trustedLayout->addWidget(label(tr("Trusted devices")));
-    trustedLayout->addWidget(label(tr("Automatic reception matches the device name, type and IP address. This is a convenience for a trusted LAN, not verification of the phone’s key. Names and addresses can be spoofed. A new IP address requires approval again.")));
+    trustedLayout->addWidget(label(tr(
+        "Automatic reception matches the device name, type and IP address. This is a convenience for a trusted LAN, not verification of the phone’s key. Names and addresses can be spoofed. A new IP address requires approval again.")));
     m_trusted = new QListWidget;
     trustedLayout->addWidget(m_trusted, 1);
     auto *remove = new QPushButton(QIcon::fromTheme("list-remove"), tr("Remove from trusted devices"));
@@ -149,23 +159,28 @@ Receiver::Receiver(const QString &destinationOverride)
     auto *sendRow = new QHBoxLayout;
     auto *sendFilesButton = new QPushButton(QIcon::fromTheme("document-send"), tr("Send files…"));
     auto *sendTextButton = new QPushButton(QIcon::fromTheme("edit-paste"), tr("Send clipboard text…"));
-    sendRow->addWidget(sendFilesButton); sendRow->addWidget(sendTextButton); layout->addLayout(sendRow);
+    sendRow->addWidget(sendFilesButton);
+    sendRow->addWidget(sendTextButton);
+    layout->addLayout(sendRow);
     connect(sendFilesButton, &QPushButton::clicked, this, [this] {
         const auto paths = QFileDialog::getOpenFileNames(this, tr("Send to phone"), QDir::homePath());
-        if (!paths.isEmpty()) sendFiles(paths);
+        if (!paths.isEmpty())
+            sendFiles(paths);
     });
-    connect(sendTextButton, &QPushButton::clicked, this, [this] { sendText(KSystemClipboard::instance()->text(QClipboard::Clipboard)); });
+    connect(sendTextButton, &QPushButton::clicked, this, [this] {
+        sendText(KSystemClipboard::instance()->text(QClipboard::Clipboard));
+    });
     auto *footer = new QHBoxLayout;
     auto *open = new QPushButton(QIcon::fromTheme("folder-download"), tr("Open downloads folder"));
     footer->addWidget(open);
     footer->addStretch();
     layout->addLayout(footer);
-    connect(open, &QPushButton::clicked, this,
-            [this] { QDesktopServices::openUrl(QUrl::fromLocalFile(destination())); });
+    connect(open, &QPushButton::clicked, this, [this] {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(destination()));
+    });
     connect(apply, &QPushButton::clicked, this, [this, autostartPath] {
         if (m_server.hasActiveConnections()) {
-            notify("error", tr("Wait for transfers to finish"),
-                   tr("You can change settings after finishing or cancelling current transfers."));
+            notify("error", tr("Wait for transfers to finish"), tr("You can change settings after finishing or cancelling current transfers."));
             return;
         }
         const QString name = m_name->text().trimmed();
@@ -182,7 +197,8 @@ Receiver::Receiver(const QString &destinationOverride)
         if (m_autostart->isChecked()) {
             QDir().mkpath(QFileInfo(autostartPath).absolutePath());
             QSaveFile f(autostartPath);
-            const QByteArray content = "[Desktop Entry]\nType=Application\nName=KQuickShare\nExec=systemctl --user start org.kde.kquickshare.service\nIcon=org.kde.kquickshare\nTerminal=false\n";
+            const QByteArray content
+                = "[Desktop Entry]\nType=Application\nName=KQuickShare\nExec=systemctl --user start org.kde.kquickshare.service\nIcon=org.kde.kquickshare\nTerminal=false\n";
             if (!f.open(QIODevice::WriteOnly) || f.write(content) != content.size() || !f.commit())
                 notify("error", tr("Could not enable startup at login"), f.errorString());
         } else if (QFileInfo::exists(autostartPath) && !QFile::remove(autostartPath))
@@ -203,8 +219,9 @@ Receiver::Receiver(const QString &destinationOverride)
     m_tray->setStandardActionsEnabled(false);
     auto *menu = new QMenu(this);
     menu->addAction(QIcon::fromTheme("org.kde.kquickshare"), tr("Transfers and settings…"), this, &Receiver::reveal);
-    menu->addAction(tr("Open downloads folder"), this,
-                    [this] { QDesktopServices::openUrl(QUrl::fromLocalFile(destination())); });
+    menu->addAction(tr("Open downloads folder"), this, [this] {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(destination()));
+    });
     auto *pause = menu->addAction(tr("Receive files"));
     pause->setCheckable(true);
     pause->setChecked(m_enabled->isChecked());
@@ -213,22 +230,24 @@ Receiver::Receiver(const QString &destinationOverride)
         m_settings.setValue("enabled", enabled);
         startReceiver();
     });
-    connect(menu, &QMenu::aboutToShow, this,
-            [this, pause] { pause->setChecked(m_settings.value("enabled", true).toBool()); });
+    connect(menu, &QMenu::aboutToShow, this, [this, pause] {
+        pause->setChecked(m_settings.value("enabled", true).toBool());
+    });
     menu->addAction(QIcon::fromTheme("document-send"), tr("Send files…"), sendFilesButton, &QPushButton::click);
     menu->addAction(QIcon::fromTheme("edit-paste"), tr("Send clipboard text…"), sendTextButton, &QPushButton::click);
     menu->addSeparator();
     menu->addAction(QIcon::fromTheme("application-exit"), tr("Exit"), qApp, &QApplication::quit);
     m_tray->setContextMenu(menu);
-    connect(m_tray, &KStatusNotifierItem::activateRequested, this, [this] { reveal(); });
+    connect(m_tray, &KStatusNotifierItem::activateRequested, this, [this] {
+        reveal();
+    });
     connect(&m_server, &NearbyServer::transferRequested, this, &Receiver::incoming);
     connect(&m_server, &NearbyServer::connectionFinished, this, &Receiver::finish);
-    connect(&m_server, &NearbyServer::textReceived, this,
-            [this](InboundConnection *conn, const QString &text, int) {
-                auto it = m_active.find(conn);
-                if (it != m_active.end())
-                    it->text = text;
-            });
+    connect(&m_server, &NearbyServer::textReceived, this, [this](InboundConnection *conn, const QString &text, int) {
+        auto it = m_active.find(conn);
+        if (it != m_active.end())
+            it->text = text;
+    });
     connect(&m_server, &NearbyServer::errorOccurred, this, [this](const QString &error) {
         m_lastError = error;
         refreshState();
@@ -237,8 +256,7 @@ Receiver::Receiver(const QString &destinationOverride)
     network->setInterval(5000);
     connect(network, &QTimer::timeout, this, [this, signature = networkSignature()]() mutable {
         const QString current = networkSignature();
-        if (!m_server.hasActiveConnections() && m_settings.value("enabled", true).toBool() &&
-            (current != signature || !m_server.isRunning())) {
+        if (!m_server.hasActiveConnections() && m_settings.value("enabled", true).toBool() && (current != signature || !m_server.isRunning())) {
             signature = current;
             startReceiver();
         }
@@ -246,25 +264,33 @@ Receiver::Receiver(const QString &destinationOverride)
     network->start();
     startReceiver();
 }
-Receiver::~Receiver() { m_server.stop(); }
-void Receiver::closeEvent(QCloseEvent *e) {
+Receiver::~Receiver()
+{
+    m_server.stop();
+}
+void Receiver::closeEvent(QCloseEvent *e)
+{
     hide();
     e->ignore();
 }
-void Receiver::reveal() {
+void Receiver::reveal()
+{
     show();
     raise();
     activateWindow();
 }
-QString Receiver::destination() const { return m_destination; }
-QString Receiver::trustKey(const TransferRequest &r) const {
+QString Receiver::destination() const
+{
+    return m_destination;
+}
+QString Receiver::trustKey(const TransferRequest &r) const
+{
     return QString::fromLatin1(
-        QCryptographicHash::hash(
-            (r.deviceName + '\n' + r.peerAddress + '\n' + QString::number(int(r.deviceType))).toUtf8(),
-            QCryptographicHash::Sha256)
+        QCryptographicHash::hash((r.deviceName + '\n' + r.peerAddress + '\n' + QString::number(int(r.deviceType))).toUtf8(), QCryptographicHash::Sha256)
             .toHex());
 }
-void Receiver::refreshTrusted() {
+void Receiver::refreshTrusted()
+{
     m_trusted->clear();
     m_settings.beginGroup("trusted");
     for (const QString &key : m_settings.childKeys()) {
@@ -273,21 +299,22 @@ void Receiver::refreshTrusted() {
     }
     m_settings.endGroup();
 }
-void Receiver::startReceiver() {
+void Receiver::startReceiver()
+{
     m_lastError.clear();
     if (m_settings.value("enabled", true).toBool())
-        m_server.start(m_settings.value("name", QHostInfo::localHostName()).toString(),
-                       DeviceType::Laptop, quint16(m_settings.value("listenPort", 53318).toUInt()));
+        m_server.start(
+            m_settings.value("name", QHostInfo::localHostName()).toString(), DeviceType::Laptop, quint16(m_settings.value("listenPort", 53318).toUInt()));
     else
         m_server.stop();
     refreshState();
 }
-void Receiver::refreshState() {
-    const QString text = !m_lastError.isEmpty()  ? m_lastError
-                         : !m_server.isRunning() ? tr("Reception paused")
-                         : m_active.isEmpty()
-                             ? tr("Online · %1").arg(m_settings.value("name", QHostInfo::localHostName()).toString())
-                             : tr("Active transfers: %1").arg(m_active.size());
+void Receiver::refreshState()
+{
+    const QString text = !m_lastError.isEmpty() ? m_lastError
+        : !m_server.isRunning()                 ? tr("Reception paused")
+        : m_active.isEmpty()                    ? tr("Online · %1").arg(m_settings.value("name", QHostInfo::localHostName()).toString())
+                                                : tr("Active transfers: %1").arg(m_active.size());
     m_state->setText(text);
     m_tray->setToolTip("org.kde.kquickshare", "KQuickShare", text);
     bool pending = false;
@@ -296,22 +323,20 @@ void Receiver::refreshState() {
     m_tray->setStatus(pending ? KStatusNotifierItem::NeedsAttention : KStatusNotifierItem::Active);
     m_tray->setOverlayIconByName(m_server.isRunning() ? QString() : "media-playback-pause");
 }
-KNotification *Receiver::notify(const QString &event, const QString &title, const QString &body,
-                                bool persistent) {
-    auto *n = new KNotification(event, persistent ? KNotification::Persistent : KNotification::CloseOnTimeout,
-                                this);
+KNotification *Receiver::notify(const QString &event, const QString &title, const QString &body, bool persistent)
+{
+    auto *n = new KNotification(event, persistent ? KNotification::Persistent : KNotification::CloseOnTimeout, this);
     n->setComponentName("kquickshare");
     n->setTitle(title);
     n->setText(body.toHtmlEscaped());
     n->setIconName("org.kde.kquickshare");
-    connect(n->addDefaultAction(tr("Open KQuickShare")), &KNotificationAction::activated, this,
-            &Receiver::reveal);
+    connect(n->addDefaultAction(tr("Open KQuickShare")), &KNotificationAction::activated, this, &Receiver::reveal);
     QTimer::singleShot(0, n, &KNotification::sendEvent);
     return n;
 }
-void Receiver::incoming(InboundConnection *conn, const TransferRequest &r) {
-    qInfo("Quick Share request: peer=%s files=%lld bytes=%lld", qPrintable(r.peerAddress),
-          qlonglong(r.files.size()), r.totalBytes);
+void Receiver::incoming(InboundConnection *conn, const TransferRequest &r)
+{
+    qInfo("Quick Share request: peer=%s files=%lld bytes=%lld", qPrintable(r.peerAddress), qlonglong(r.files.size()), r.totalBytes);
     m_empty->hide();
     // Keep a bounded session history.
     for (int i = m_transfers->count() - 1; i >= 0 && m_transfers->count() > 30; --i) {
@@ -334,10 +359,7 @@ void Receiver::incoming(InboundConnection *conn, const TransferRequest &r) {
     for (const auto &f : r.files)
         names << f.name;
     v->addWidget(
-        label(r.files.isEmpty()
-                  ? r.textTitle
-                  : names.mid(0, 5).join('\n') +
-                        (names.size() > 5 ? tr("\n…and %1 more").arg(names.size() - 5) : QString())));
+        label(r.files.isEmpty() ? r.textTitle : names.mid(0, 5).join('\n') + (names.size() > 5 ? tr("\n…and %1 more").arg(names.size() - 5) : QString())));
     t.status = label(tr("Compare the PIN with your phone and approve reception."));
     v->addWidget(t.status);
     t.progress = new QProgressBar;
@@ -381,23 +403,22 @@ void Receiver::incoming(InboundConnection *conn, const TransferRequest &r) {
     connect(conn, &QObject::destroyed, cancel, &QWidget::hide);
     m_transfers->insertWidget(0, card);
     m_active.insert(conn, t);
-    connect(conn, &InboundConnection::overallProgress, this,
-            [this, conn](InboundConnection *, qint64 received, qint64 total) {
-                auto it = m_active.find(conn);
-                if (it == m_active.end())
-                    return;
-                it->progress->setValue(int(1000.0 * received / qMax(qint64(1), total)));
-                it->status->setText(tr("Received %1 of %2").arg(sizeText(received), sizeText(total)));
-            });
+    connect(conn, &InboundConnection::overallProgress, this, [this, conn](InboundConnection *, qint64 received, qint64 total) {
+        auto it = m_active.find(conn);
+        if (it == m_active.end())
+            return;
+        it->progress->setValue(int(1000.0 * received / qMax(qint64(1), total)));
+        it->status->setText(tr("Received %1 of %2").arg(sizeText(received), sizeText(total)));
+    });
     if (m_settings.contains("trusted/" + trustKey(r))) {
         accept(conn);
         cancel->show();
-        notify("receiving", tr("Receiving from «%1»").arg(r.deviceName),
-               tr("Automatic reception · %1").arg(sizeText(r.totalBytes)));
+        notify("receiving", tr("Receiving from «%1»").arg(r.deviceName), tr("Automatic reception · %1").arg(sizeText(r.totalBytes)));
     } else {
-        auto *n = notify(
-            "request", tr("«%1» is sending files").arg(r.deviceName),
-            tr("PIN %1 · %2\nCompare the code on your phone.").arg(r.pinCode, sizeText(r.totalBytes)), true);
+        auto *n = notify("request",
+            tr("«%1» is sending files").arg(r.deviceName),
+            tr("PIN %1 · %2\nCompare the code on your phone.").arg(r.pinCode, sizeText(r.totalBytes)),
+            true);
         m_active[conn].notification = n;
         connect(n->addAction(tr("Accept")), &KNotificationAction::activated, this, [this, safe, cancel] {
             if (safe) {
@@ -412,13 +433,13 @@ void Receiver::incoming(InboundConnection *conn, const TransferRequest &r) {
     }
     refreshState();
 }
-void Receiver::accept(InboundConnection *conn) {
+void Receiver::accept(InboundConnection *conn)
+{
     auto it = m_active.find(conn);
     if (it == m_active.end() || it->accepted)
         return;
     if (it->remember->isChecked()) {
-        m_settings.setValue("trusted/" + trustKey(it->request),
-                            it->request.deviceName + " · " + it->request.peerAddress);
+        m_settings.setValue("trusted/" + trustKey(it->request), it->request.deviceName + " · " + it->request.peerAddress);
         m_settings.sync();
         refreshTrusted();
     }
@@ -431,7 +452,8 @@ void Receiver::accept(InboundConnection *conn) {
     conn->acceptTransfer(destination());
     refreshState();
 }
-void Receiver::finish(InboundConnection *conn, const QStringList &files, const QString &incomingError) {
+void Receiver::finish(InboundConnection *conn, const QStringList &files, const QString &incomingError)
+{
     auto it = m_active.find(conn);
     if (it == m_active.end())
         return;
@@ -453,8 +475,8 @@ void Receiver::finish(InboundConnection *conn, const QStringList &files, const Q
             copy(*it->text);
             if (saveText) {
                 QDir().mkpath(destination());
-                QTemporaryFile file(QDir(destination()).filePath(
-                    "Quick Share " + QDateTime::currentDateTime().toString("yyyy-MM-dd HH-mm-ss") + "-XXXXXX.txt"));
+                QTemporaryFile file(
+                    QDir(destination()).filePath("Quick Share " + QDateTime::currentDateTime().toString("yyyy-MM-dd HH-mm-ss") + "-XXXXXX.txt"));
                 const auto bytes = it->text->toUtf8();
                 if (!file.open() || file.write(bytes) != bytes.size() || !file.flush()) {
                     error = tr("Could not save the text to disk");
@@ -472,8 +494,7 @@ void Receiver::finish(InboundConnection *conn, const QStringList &files, const Q
                     const auto bytes = file.read(5 * 1024 * 1024 + 1);
                     QStringDecoder decoder(QStringDecoder::Utf8);
                     const QString text = decoder.decode(bytes);
-                    const bool valid = !decoder.hasError() && !text.contains(QChar::Null) &&
-                                       bytes.size() == info.size();
+                    const bool valid = !decoder.hasError() && !text.contains(QChar::Null) && bytes.size() == info.size();
                     file.close();
                     if (valid) {
                         copy(text);
@@ -487,7 +508,6 @@ void Receiver::finish(InboundConnection *conn, const QStringList &files, const Q
                     }
                 }
             }
-
         }
     }
     QString result = tr("Received. Files saved: %1").arg(savedFiles.size());
@@ -505,34 +525,51 @@ void Receiver::finish(InboundConnection *conn, const QStringList &files, const Q
         it->progress->hide();
         it->status->setText(error);
     }
-    auto *n = notify(
-        error.isEmpty() ? "complete" : "error",
+    auto *n = notify(error.isEmpty() ? "complete" : "error",
         error.isEmpty() ? tr("Received from «%1»").arg(device) : tr("Transfer from «%1» ended").arg(device),
         error.isEmpty() ? result : error);
     if (error.isEmpty() && !savedFiles.isEmpty())
-        connect(n->addAction(tr("Open folder")), &KNotificationAction::activated, this,
-                [this] { QDesktopServices::openUrl(QUrl::fromLocalFile(destination())); });
+        connect(n->addAction(tr("Open folder")), &KNotificationAction::activated, this, [this] {
+            QDesktopServices::openUrl(QUrl::fromLocalFile(destination()));
+        });
     m_active.erase(it);
     refreshState();
 }
 
-void Receiver::sendFiles(const QStringList &paths) {
+void Receiver::sendFiles(const QStringList &paths)
+{
     QStringList local;
     for (const auto &path : paths) {
         const QUrl url = QUrl::fromUserInput(path, QDir::currentPath(), QUrl::AssumeLocalFile);
-        if (!url.isLocalFile()) { notify("error", tr("Local files are required"), tr("Save the file to your computer first.")); return; }
+        if (!url.isLocalFile()) {
+            notify("error", tr("Local files are required"), tr("Save the file to your computer first."));
+            return;
+        }
         local << url.toLocalFile();
     }
-    if (local.isEmpty()) return;
-    auto *dialog = new SendDialog(local, {}, this); dialog->show(); dialog->raise(); dialog->activateWindow();
+    if (local.isEmpty())
+        return;
+    auto *dialog = new SendDialog(local, {}, this);
+    dialog->show();
+    dialog->raise();
+    dialog->activateWindow();
 }
-void Receiver::sendText(const QString &text) {
-    if (text.isEmpty()) { notify("error", tr("The clipboard is empty"), tr("Copy some text before sending.")); return; }
-    auto *dialog = new SendDialog({}, text, this); dialog->show(); dialog->raise(); dialog->activateWindow();
+void Receiver::sendText(const QString &text)
+{
+    if (text.isEmpty()) {
+        notify("error", tr("The clipboard is empty"), tr("Copy some text before sending."));
+        return;
+    }
+    auto *dialog = new SendDialog({}, text, this);
+    dialog->show();
+    dialog->raise();
+    dialog->activateWindow();
 }
 
-QString Receiver::sendStatus() const {
+QString Receiver::sendStatus() const
+{
     QStringList status;
-    for (auto *dialog : findChildren<SendDialog *>()) status << dialog->status();
+    for (auto *dialog : findChildren<SendDialog *>())
+        status << dialog->status();
     return status.join('\n');
 }

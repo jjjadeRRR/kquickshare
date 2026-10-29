@@ -6,7 +6,8 @@
 #include <memory>
 #include <openssl/evp.h>
 
-namespace crypto {
+namespace crypto
+{
 
 using EvpPkeyPtr = std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)>;
 

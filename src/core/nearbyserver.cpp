@@ -8,7 +8,8 @@
 #include <QTcpServer>
 #include <QTcpSocket>
 
-namespace {
+namespace
+{
 QByteArray generateEndpointId()
 {
     static const char alphabet[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -35,8 +36,7 @@ QString sanitizeHostLabel(const QString &hostName)
 
 NearbyServer::NearbyServer(QObject *parent)
     : QObject(parent)
-{
-}
+{ }
 
 NearbyServer::~NearbyServer()
 {
@@ -68,11 +68,10 @@ bool NearbyServer::start(const QString &deviceName, DeviceType deviceType, quint
     const QByteArray endpointInfo = base64UrlEncode(EndpointInfo::serialize(deviceName, deviceType));
     // Use our own host label: answering for the machine's "<hostname>.local"
     // with cache-flush set conflicts with avahi-daemon on multi-homed hosts.
-    const QString hostName = sanitizeHostLabel(QHostInfo::localHostName()) + QStringLiteral("-quickshare-")
-        + QString::fromLatin1(endpointId).toLower() + QStringLiteral(".local");
+    const QString hostName
+        = sanitizeHostLabel(QHostInfo::localHostName()) + QStringLiteral("-quickshare-") + QString::fromLatin1(endpointId).toLower() + QStringLiteral(".local");
 
-    m_mdns = new MdnsResponder(QStringLiteral("_FC9F5ED42C8A._tcp.local"),
-                               QString::fromLatin1(instanceName), hostName, port, endpointInfo, this);
+    m_mdns = new MdnsResponder(QStringLiteral("_FC9F5ED42C8A._tcp.local"), QString::fromLatin1(instanceName), hostName, port, endpointInfo, this);
     if (!m_mdns->start()) {
         emit errorOccurred(tr("Could not start mDNS advertising"));
         stop();
@@ -86,7 +85,8 @@ bool NearbyServer::start(const QString &deviceName, DeviceType deviceType, quint
 void NearbyServer::stop()
 {
     const auto connections = findChildren<InboundConnection *>(QString(), Qt::FindDirectChildrenOnly);
-    for (auto *connection : connections) connection->cancelTransfer();
+    for (auto *connection : connections)
+        connection->cancelTransfer();
     if (m_mdns) {
         m_mdns->stop();
         m_mdns->deleteLater();

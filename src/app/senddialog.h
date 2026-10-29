@@ -8,17 +8,18 @@ class QListWidget;
 class QLabel;
 class QPushButton;
 class QProgressBar;
-class SendDialog : public QDialog {
+class SendDialog : public QDialog
+{
     Q_OBJECT
-  public:
+public:
     SendDialog(const QStringList &files, const QString &text, QWidget *parent = nullptr);
     ~SendDialog() override;
     QString status() const;
 
-  protected:
+protected:
     void reject() override;
 
-  private:
+private:
     void updateDevices();
     void send();
     crypto::EvpPkeyPtr m_qrKey{nullptr, &EVP_PKEY_free};

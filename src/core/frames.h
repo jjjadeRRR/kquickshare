@@ -9,7 +9,8 @@
 #include <QHash>
 #include <QVector>
 
-namespace frames {
+namespace frames
+{
 
 // ---------------- Stream framing ----------------
 
@@ -43,22 +44,25 @@ enum class OfflineFrameType {
     BandwidthUpgradeRetry = 12,
 };
 
-struct PayloadHeader {
+struct PayloadHeader
+{
     qint64 id = 0;
     int type = 0; // 1 = BYTES, 2 = FILE
     qint64 totalSize = 0;
 };
 
-struct PayloadChunk {
+struct PayloadChunk
+{
     int flags = 0; // bit 0 = LAST_CHUNK
     qint64 offset = 0;
     QByteArray body;
     bool hasBody = false;
 };
 
-struct OfflineFrame {
+struct OfflineFrame
+{
     OfflineFrameType type = OfflineFrameType::Unknown;
-    QByteArray endpointInfo;   // ConnectionRequest
+    QByteArray endpointInfo; // ConnectionRequest
     PayloadHeader payloadHeader;
     PayloadChunk payloadChunk;
     bool hasPayloadChunk = false;
@@ -87,8 +91,7 @@ public:
     };
     explicit BytesPayloadAssembler(int maxConcurrentPayloads)
         : m_maxPayloads(maxConcurrentPayloads)
-    {
-    }
+    { }
     // On Complete, payload holds the whole body.
     Result add(const PayloadHeader &header, const PayloadChunk &chunk, QByteArray &payload);
 
@@ -106,12 +109,14 @@ enum class Ukey2Type {
     ClientFinish = 4,
 };
 
-struct Ukey2Message {
+struct Ukey2Message
+{
     int type = 0;
     QByteArray data;
 };
 
-struct Ukey2ClientInit {
+struct Ukey2ClientInit
+{
     int version = 0;
     QByteArray random;
     QByteArray p256Commitment; // empty if no P256_SHA512 commitment found
@@ -128,7 +133,8 @@ QByteArray buildUkey2Alert(int alertType);
 
 // Keys derived from a completed UKEY2 handshake. "client" is the side that
 // sent CLIENT_INIT (the sender), "server" the side that answered (the receiver).
-struct Ukey2Keys {
+struct Ukey2Keys
+{
     QByteArray authString; // source of the 4-digit PIN code
     QByteArray clientEncrypt, clientHmac;
     QByteArray serverEncrypt, serverHmac;
@@ -136,22 +142,24 @@ struct Ukey2Keys {
 
 // clientInit/serverInit are the complete serialized Ukey2Messages.
 bool deriveUkey2Keys(EVP_PKEY *ourKey,
-                     const QByteArray &peerX,
-                     const QByteArray &peerY,
-                     const QByteArray &clientInit,
-                     const QByteArray &serverInit,
-                     Ukey2Keys &out);
+    const QByteArray &peerX,
+    const QByteArray &peerY,
+    const QByteArray &clientInit,
+    const QByteArray &serverInit,
+    Ukey2Keys &out);
 
 // Four-digit verification code shown on both devices.
 QString pinCode(const QByteArray &authString);
 
 // ---------------- SecureMessage (securemessage/securegcm) ----------------
 
-QByteArray encryptOfflineFrame(const QByteArray &serializedOfflineFrame, qint32 sequence,
-                               const QByteArray &encryptKey, const QByteArray &sendHmacKey);
+QByteArray encryptOfflineFrame(const QByteArray &serializedOfflineFrame, qint32 sequence, const QByteArray &encryptKey, const QByteArray &sendHmacKey);
 // Verifies HMAC, decrypts, checks the sequence number, returns the inner OfflineFrame bytes.
-bool decryptSecureMessage(const QByteArray &data, const QByteArray &decryptKey, const QByteArray &recvHmacKey,
-                          qint32 expectedSequence, QByteArray &offlineFrameOut);
+bool decryptSecureMessage(const QByteArray &data,
+    const QByteArray &decryptKey,
+    const QByteArray &recvHmacKey,
+    qint32 expectedSequence,
+    QByteArray &offlineFrameOut);
 
 // ---------------- Sharing frames (sharing.nearby, wire_format.proto) ----------------
 
@@ -166,24 +174,27 @@ enum class SharingFrameType {
     ProgressUpdate = 7,
 };
 
-struct FileMeta {
+struct FileMeta
+{
     QString name;
     QString mimeType;
     qint64 payloadId = 0;
     qint64 size = 0;
 };
 
-struct TextMeta {
+struct TextMeta
+{
     QString title;
     int type = 0; // 1 = TEXT, 2 = URL, 3 = ADDRESS, 4 = PHONE_NUMBER
     qint64 payloadId = 0;
     qint64 size = 0;
 };
 
-struct SharingFrame {
+struct SharingFrame
+{
     SharingFrameType type = SharingFrameType::Unknown;
-    QVector<FileMeta> files;          // Introduction
-    QVector<TextMeta> texts;          // Introduction
+    QVector<FileMeta> files; // Introduction
+    QVector<TextMeta> texts; // Introduction
     bool hasPairedKeyEncryption = false;
     int responseStatus = 0;
 };

@@ -5,12 +5,21 @@
 #include <QNetworkDatagram>
 #include <QNetworkInterface>
 #include <QSet>
-namespace {
+namespace
+{
 const QString service = QStringLiteral("_fc9f5ed42c8a._tcp.local");
-quint16 u16(const QByteArray &p, int n) { return quint16(quint8(p[n])) << 8 | quint8(p[n + 1]); }
-quint32 u32(const QByteArray &p, int n) { return quint32(u16(p, n)) << 16 | u16(p, n + 2); }
+quint16 u16(const QByteArray &p, int n)
+{
+    return quint16(quint8(p[n])) << 8 | quint8(p[n + 1]);
+}
+quint32 u32(const QByteArray &p, int n)
+{
+    return quint32(u16(p, n)) << 16 | u16(p, n + 2);
+}
 } // namespace
-DeviceDiscovery::DeviceDiscovery(QObject *parent) : QObject(parent) {
+DeviceDiscovery::DeviceDiscovery(QObject *parent)
+    : QObject(parent)
+{
     m_timer.setInterval(3000);
     connect(&m_timer, &QTimer::timeout, this, &DeviceDiscovery::query);
     connect(&m_socket, &QUdpSocket::readyRead, this, [this] {
@@ -20,18 +29,18 @@ DeviceDiscovery::DeviceDiscovery(QObject *parent) : QObject(parent) {
         }
     });
 }
-bool DeviceDiscovery::start() {
+bool DeviceDiscovery::start()
+{
     stop();
-    if (!m_socket.bind(QHostAddress::AnyIPv4, 5353,
-                       QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint)) {
+    if (!m_socket.bind(QHostAddress::AnyIPv4, 5353, QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint)) {
         emit errorOccurred(m_socket.errorString());
         return false;
     }
     bool joined = false;
     for (const auto &iface : QNetworkInterface::allInterfaces()) {
         const auto flags = iface.flags();
-        if (!(flags & QNetworkInterface::IsUp) || !(flags & QNetworkInterface::CanMulticast) ||
-            (flags & QNetworkInterface::IsLoopBack) || (flags & QNetworkInterface::IsPointToPoint))
+        if (!(flags & QNetworkInterface::IsUp) || !(flags & QNetworkInterface::CanMulticast) || (flags & QNetworkInterface::IsLoopBack)
+            || (flags & QNetworkInterface::IsPointToPoint))
             continue;
         joined |= m_socket.joinMulticastGroup(QHostAddress("224.0.0.251"), iface);
     }
@@ -45,19 +54,25 @@ bool DeviceDiscovery::start() {
     query();
     return true;
 }
-void DeviceDiscovery::stop() {
+void DeviceDiscovery::stop()
+{
     m_timer.stop();
     m_socket.close();
     m_services.clear();
     m_hosts.clear();
     m_devices.clear();
 }
-QList<NearbyDevice> DeviceDiscovery::devices() const { return m_devices; }
-void DeviceDiscovery::setQrKey(const QByteArray &key) {
+QList<NearbyDevice> DeviceDiscovery::devices() const
+{
+    return m_devices;
+}
+void DeviceDiscovery::setQrKey(const QByteArray &key)
+{
     m_qrToken = crypto::hkdfSha256(key, {}, "advertisingContext", 16);
     m_nameKey = crypto::hkdfSha256(key, {}, "encryptionKey", 16);
 }
-void DeviceDiscovery::question(const QString &name, quint16 type) {
+void DeviceDiscovery::question(const QString &name, quint16 type)
+{
     if (m_socket.state() != QAbstractSocket::BoundState)
         return;
     QByteArray packet(12, '\0');
@@ -71,14 +86,15 @@ void DeviceDiscovery::question(const QString &name, quint16 type) {
     packet.append(char(type >> 8)).append(char(type)).append(char(0)).append(char(1));
     for (const auto &iface : QNetworkInterface::allInterfaces()) {
         const auto flags = iface.flags();
-        if (!(flags & QNetworkInterface::IsUp) || !(flags & QNetworkInterface::CanMulticast) ||
-            (flags & QNetworkInterface::IsLoopBack) || (flags & QNetworkInterface::IsPointToPoint))
+        if (!(flags & QNetworkInterface::IsUp) || !(flags & QNetworkInterface::CanMulticast) || (flags & QNetworkInterface::IsLoopBack)
+            || (flags & QNetworkInterface::IsPointToPoint))
             continue;
         m_socket.setMulticastInterface(iface);
         m_socket.writeDatagram(packet, QHostAddress("224.0.0.251"), 5353);
     }
 }
-void DeviceDiscovery::query() {
+void DeviceDiscovery::query()
+{
     question("_FC9F5ED42C8A._tcp.local", 12);
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
     for (auto it = m_services.begin(); it != m_services.end();) {
@@ -89,7 +105,8 @@ void DeviceDiscovery::query() {
     }
     publish();
 }
-bool DeviceDiscovery::decodeName(const QByteArray &packet, int &pos, QString &name) {
+bool DeviceDiscovery::decodeName(const QByteArray &packet, int &pos, QString &name)
+{
     int p = pos, hops = 0;
     bool jumped = false;
     QStringList labels;
@@ -118,7 +135,8 @@ bool DeviceDiscovery::decodeName(const QByteArray &packet, int &pos, QString &na
     }
     return false;
 }
-void DeviceDiscovery::ingest(const QByteArray &p) {
+void DeviceDiscovery::ingest(const QByteArray &p)
+{
     if (p.size() < 12 || !(u16(p, 2) & 0x8000))
         return;
     int pos = 12;
@@ -193,8 +211,7 @@ void DeviceDiscovery::ingest(const QByteArray &p) {
                         EndpointInfo info;
                         if (EndpointInfo::parse(base64UrlDecode(value.mid(2)), info)) {
                             if (info.name.isEmpty() && !m_nameKey.isEmpty() && info.qrCodeData.size() > 28) {
-                                const auto decoded =
-                                    crypto::aes128GcmDecrypt(m_nameKey, info.qrCodeData, m_qrToken);
+                                const auto decoded = crypto::aes128GcmDecrypt(m_nameKey, info.qrCodeData, m_qrToken);
                                 if (!decoded.isEmpty())
                                     info.name = QString::fromUtf8(decoded);
                             }
@@ -211,7 +228,8 @@ void DeviceDiscovery::ingest(const QByteArray &p) {
     }
     publish();
 }
-void DeviceDiscovery::publish() {
+void DeviceDiscovery::publish()
+{
     QList<NearbyDevice> devices;
     for (auto it = m_services.cbegin(); it != m_services.cend(); ++it) {
         const auto &r = it.value();
@@ -219,7 +237,9 @@ void DeviceDiscovery::publish() {
         if (r.port && !r.name.isEmpty() && r.phone && !address.isNull())
             devices.append({it.key(), r.name, address, r.port});
     }
-    std::sort(devices.begin(), devices.end(), [](const auto &a, const auto &b) { return a.id < b.id; });
+    std::sort(devices.begin(), devices.end(), [](const auto &a, const auto &b) {
+        return a.id < b.id;
+    });
     bool same = devices.size() == m_devices.size();
     for (int i = 0; same && i < devices.size(); ++i) {
         const auto &a = devices[i], &b = m_devices[i];

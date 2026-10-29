@@ -1,58 +1,68 @@
-#include "receiver.h"
 #include "localization.h"
-#include <QTabWidget>
-#include "senddialog.h"
 #include "outboundconnection.h"
-#include <QApplication>
-#include <QClipboard>
+#include "receiver.h"
+#include "senddialog.h"
 #include <KSystemClipboard>
-#include <QMimeData>
-#include <QImage>
+#include <QApplication>
 #include <QCheckBox>
+#include <QClipboard>
 #include <QDBusConnection>
 #include <QGroupBox>
+#include <QImage>
 #include <QLabel>
-#include <QListWidget>
 #include <QLineEdit>
-#include <QSpinBox>
+#include <QListWidget>
+#include <QMimeData>
 #include <QProcess>
 #include <QPushButton>
+#include <QSignalSpy>
+#include <QSpinBox>
+#include <QTabWidget>
 #include <QTcpServer>
 #include <QTemporaryDir>
 #include <QTest>
-#include <QSignalSpy>
 #include <QVariantMap>
 
-class Notifications : public QObject {
+class Notifications : public QObject
+{
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.freedesktop.Notifications")
-  public:
+public:
     uint next = 0;
     QStringList actions;
     QString title;
-  public slots:
-    QStringList GetCapabilities() { return {"actions", "body"}; }
-    QString GetServerInformation(QString &vendor, QString &version, QString &spec) {
+public slots:
+    QStringList GetCapabilities()
+    {
+        return {"actions", "body"};
+    }
+    QString GetServerInformation(QString &vendor, QString &version, QString &spec)
+    {
         vendor = "KQuickShare Tests";
         version = "1";
         spec = "1.2";
         return "Test Notifications";
     }
-    uint Notify(const QString &, uint, const QString &, const QString &summary, const QString &,
-                const QStringList &buttons, const QVariantMap &, int) {
+    uint Notify(const QString &, uint, const QString &, const QString &summary, const QString &, const QStringList &buttons, const QVariantMap &, int)
+    {
         actions = buttons;
         title = summary;
         return ++next;
     }
-    void CloseNotification(uint id) { emit NotificationClosed(id, 3); }
-  signals:
+    void CloseNotification(uint id)
+    {
+        emit NotificationClosed(id, 3);
+    }
+signals:
     void ActionInvoked(uint id, const QString &action);
     void NotificationClosed(uint id, uint reason);
 };
 static Notifications *notifications;
 
-namespace {
-QByteArray receiverAnnouncement(quint16 port) {
+namespace
+{
+QByteArray receiverAnnouncement(quint16 port)
+{
     auto name = [](const QString &value) {
         QByteArray result;
         for (const auto &label : value.split('.')) {
@@ -74,8 +84,7 @@ QByteArray receiverAnnouncement(quint16 port) {
     packet[2] = char(0x84);
     packet[7] = 3;
     auto record = [&](const QString &owner, quint16 type, const QByteArray &body) {
-        packet += name(owner) + u16(type) + u16(1) + QByteArray::fromHex("00000078") +
-                  u16(quint16(body.size())) + body;
+        packet += name(owner) + u16(type) + u16(1) + QByteArray::fromHex("00000078") + u16(quint16(body.size())) + body;
     };
     record("retry.local", 1, QByteArray::fromHex("7f000001"));
     record(instance, 33, QByteArray(4, '\0') + u16(port) + name("retry.local"));
@@ -85,15 +94,18 @@ QByteArray receiverAnnouncement(quint16 port) {
 }
 } // namespace
 
-class GuiTests : public QObject {
+class GuiTests : public QObject
+{
     Q_OBJECT
-  private slots:
-    void cleanup() {
+private slots:
+    void cleanup()
+    {
         // KSystemClipboard keeps its Wayland read lock until the next event-loop
         // iteration. Drain it before qExec returns and QApplication is destroyed.
         QCoreApplication::processEvents();
     }
-    void localizedInterface_data() {
+    void localizedInterface_data()
+    {
         QTest::addColumn<QStringList>("languages");
         QTest::addColumn<QString>("tab");
         QTest::addColumn<QString>("sendButton");
@@ -102,7 +114,8 @@ class GuiTests : public QObject {
         QTest::newRow("fallback") << QStringList{"fr-FR"} << QString("Transfers") << QString("Send files…");
         QTest::newRow("preference") << QStringList{"en-US", "ru-RU"} << QString("Transfers") << QString("Send files…");
     }
-    void localizedInterface() {
+    void localizedInterface()
+    {
         QFETCH(QStringList, languages);
         QFETCH(QString, tab);
         QFETCH(QString, sendButton);
@@ -115,16 +128,15 @@ class GuiTests : public QObject {
         QVERIFY(tabs);
         QCOMPARE(tabs->tabText(0), tab);
         bool found = false;
-        for (auto *button : receiver.findChildren<QPushButton *>()) found |= button->text() == sendButton;
+        for (auto *button : receiver.findChildren<QPushButton *>())
+            found |= button->text() == sendButton;
         QVERIFY(found);
         SendDialog dialog({}, "Localization fixture");
-        QCOMPARE(dialog.windowTitle(), localization::language(languages) == "ru"
-                     ? QString("Отправить через KQuickShare") : QString("Send with KQuickShare"));
+        QCOMPARE(dialog.windowTitle(), localization::language(languages) == "ru" ? QString("Отправить через KQuickShare") : QString("Send with KQuickShare"));
         QString error;
         OutboundConnection connection;
         QVERIFY(!connection.setText({}, error));
-        QCOMPARE(error, localization::language(languages) == "ru"
-                     ? QString("Нужен текст размером до 5 МиБ") : QString("Text must be at most 5 MiB"));
+        QCOMPARE(error, localization::language(languages) == "ru" ? QString("Нужен текст размером до 5 МиБ") : QString("Text must be at most 5 MiB"));
         receiver.show();
         receiver.grab().save(QString(SOURCE_DIR) + "/build/locale-" + localization::language(languages) + ".png");
         tabs->setCurrentIndex(1);
@@ -133,7 +145,8 @@ class GuiTests : public QObject {
         receiver.findChild<QSpinBox *>("listenPort")->setValue(53318);
         receiver.grab().save(QString(SOURCE_DIR) + "/build/settings-" + localization::language(languages) + ".png");
     }
-    void receivedClipboard_data() {
+    void receivedClipboard_data()
+    {
         QTest::addColumn<QString>("kind");
         QTest::addColumn<bool>("copy");
         QTest::addColumn<bool>("save");
@@ -148,7 +161,8 @@ class GuiTests : public QObject {
         QTest::newRow("invalid-utf8-preserved") << QString("invalid") << true << false;
         QTest::newRow("failed-transfer-keeps-clipboard") << QString("truncated") << true << false;
     }
-    void receivedClipboard() {
+    void receivedClipboard()
+    {
         QFETCH(QString, kind);
         QFETCH(bool, copy);
         QFETCH(bool, save);
@@ -191,30 +205,35 @@ class GuiTests : public QObject {
         QVERIFY(tcp && tcp->isListening());
         QSignalSpy completed(receiver.findChild<NearbyServer *>(), &NearbyServer::connectionFinished);
         const QString intro = kind == "text"
-            ? QString("s.send_sharing(sharing(1,2,b(2,b(2,'Shared text')+v(3,1)+v(4,42)+v(5,%1)))); s.recv_sharing()") .arg(payload.size())
+            ? QString("s.send_sharing(sharing(1,2,b(2,b(2,'Shared text')+v(3,1)+v(4,42)+v(5,%1)))); s.recv_sharing()").arg(payload.size())
             : QString("s.introduce([(42,'%1',%2)])").arg(filename).arg(payload.size());
-        const QString script = QString(
-            "import sys; sys.path.insert(0,'%1/tests'); from fake_sender import Sender,sharing,b,v; "
-            "s=Sender('127.0.0.1',%2,'Clipboard Android'); %3; "
-            "s.payload(42,%4,%5,0,bytes.fromhex('%6'),True); s.close()")
-            .arg(SOURCE_DIR).arg(tcp->serverPort()).arg(intro)
-            .arg(kind == "text" ? 1 : 2).arg(payload.size())
-            .arg(QString::fromLatin1((kind == "truncated" ? payload.left(2) : payload).toHex()));
+        const QString script = QString("import sys; sys.path.insert(0,'%1/tests'); from fake_sender import Sender,sharing,b,v; "
+                                       "s=Sender('127.0.0.1',%2,'Clipboard Android'); %3; "
+                                       "s.payload(42,%4,%5,0,bytes.fromhex('%6'),True); s.close()")
+                                   .arg(SOURCE_DIR)
+                                   .arg(tcp->serverPort())
+                                   .arg(intro)
+                                   .arg(kind == "text" ? 1 : 2)
+                                   .arg(payload.size())
+                                   .arg(QString::fromLatin1((kind == "truncated" ? payload.left(2) : payload).toHex()));
         QProcess sender;
         sender.start(QStringLiteral(PYTHON_EXECUTABLE), {"-c", script});
         QPushButton *accept = nullptr;
         QTRY_VERIFY_WITH_TIMEOUT(([&] {
             for (auto *button : receiver.findChildren<QPushButton *>())
-                if (button->text() == "Accept") { accept = button; return true; }
+                if (button->text() == "Accept") {
+                    accept = button;
+                    return true;
+                }
             return false;
-        })(), 8000);
+        })(),
+            8000);
         QTest::mouseClick(accept, Qt::LeftButton);
         QTRY_COMPARE_WITH_TIMEOUT(sender.state(), QProcess::NotRunning, 8000);
         QCOMPARE(sender.exitCode(), 0);
         QTRY_COMPARE_WITH_TIMEOUT(completed.count(), 1, 8000);
         QCOMPARE(completed.first().at(2).toString().isEmpty(), kind != "truncated");
-        QCOMPARE(KSystemClipboard::instance()->text(QClipboard::Clipboard),
-            copy && (kind == "text" || kind == "txt") ? text : QString("existing clipboard"));
+        QCOMPARE(KSystemClipboard::instance()->text(QClipboard::Clipboard), copy && (kind == "text" || kind == "txt") ? text : QString("existing clipboard"));
         auto files = QDir(downloads.path()).entryList(QDir::Files | QDir::NoDotAndDotDot);
         if (kind == "txt") {
             QVERIFY(files.removeOne("shared.txt"));
@@ -222,8 +241,7 @@ class GuiTests : public QObject {
             QVERIFY(existing.open(QIODevice::ReadOnly));
             QCOMPARE(existing.readAll(), QByteArray("keep existing"));
         }
-        const bool shouldSave = kind == "image" || kind == "invalid" ||
-                                (save && (kind == "text" || kind == "txt"));
+        const bool shouldSave = kind == "image" || kind == "invalid" || (save && (kind == "text" || kind == "txt"));
         QCOMPARE(files.size(), shouldSave ? 1 : 0);
         if (shouldSave) {
             QFile file(downloads.filePath(files.first()));
@@ -231,7 +249,8 @@ class GuiTests : public QObject {
             QCOMPARE(file.readAll(), payload);
         }
     }
-    void clipboardSettingsPersistIndependently() {
+    void clipboardSettingsPersistIndependently()
+    {
         QTemporaryDir downloads;
         QSettings settings;
         settings.clear();
@@ -262,7 +281,8 @@ class GuiTests : public QObject {
             }
         }
     }
-    void configuredListeningPort() {
+    void configuredListeningPort()
+    {
         QTemporaryDir downloads;
         QTcpServer probe;
         QVERIFY(probe.listen(QHostAddress::LocalHost));
@@ -276,7 +296,8 @@ class GuiTests : public QObject {
         QVERIFY(tcp && tcp->isListening());
         QCOMPARE(tcp->serverPort(), port);
     }
-    void occupiedListeningPortDoesNotSilentlyMove() {
+    void occupiedListeningPortDoesNotSilentlyMove()
+    {
         QTemporaryDir downloads;
         QTcpServer occupied;
         QVERIFY(occupied.listen(QHostAddress::AnyIPv4));
@@ -287,7 +308,8 @@ class GuiTests : public QObject {
         auto *tcp = receiver.findChild<QTcpServer *>();
         QVERIFY(!tcp || !tcp->isListening());
     }
-    void trustedRoundTrip() {
+    void trustedRoundTrip()
+    {
         QTemporaryDir downloads;
         QVERIFY(downloads.isValid());
         QSettings settings;
@@ -315,14 +337,14 @@ class GuiTests : public QObject {
         send(first, "Test Android");
         QGroupBox *card = nullptr;
         QTRY_VERIFY_WITH_TIMEOUT(([&] {
-                                     for (auto *g : receiver.findChildren<QGroupBox *>())
-                                         if (g->title() == "Test Android") {
-                                             card = g;
-                                             return true;
-                                         }
-                                     return false;
-                                 })(),
-                                 8000);
+            for (auto *g : receiver.findChildren<QGroupBox *>())
+                if (g->title() == "Test Android") {
+                    card = g;
+                    return true;
+                }
+            return false;
+        })(),
+            8000);
         QVERIFY(card);
         auto *trust = card->findChild<QCheckBox *>();
         QVERIFY(trust);
@@ -355,14 +377,14 @@ class GuiTests : public QObject {
         send(stranger, "Other Android");
         QGroupBox *unknown = nullptr;
         QTRY_VERIFY_WITH_TIMEOUT(([&] {
-                                     for (auto *g : receiver.findChildren<QGroupBox *>())
-                                         if (g->title() == "Other Android") {
-                                             unknown = g;
-                                             return true;
-                                         }
-                                     return false;
-                                 })(),
-                                 8000);
+            for (auto *g : receiver.findChildren<QGroupBox *>())
+                if (g->title() == "Other Android") {
+                    unknown = g;
+                    return true;
+                }
+            return false;
+        })(),
+            8000);
         QVERIFY(!QFileInfo::exists(downloads.filePath("received (2).txt")));
         QPushButton *reject = nullptr;
         for (auto *button : unknown->findChildren<QPushButton *>())
@@ -374,14 +396,14 @@ class GuiTests : public QObject {
         receiver.close();
         QVERIFY(!receiver.isVisible());
     }
-    void retryRejectedOutgoingTransfer() {
+    void retryRejectedOutgoingTransfer()
+    {
         auto startReceiver = [](QProcess &process, const QString &mode) {
-            const QString script =
-                QString("import sys,socket; sys.path.insert(0, '%1/tests'); from fake_receiver import "
-                        "Receiver; s=socket.socket(); s.bind(('127.0.0.1',0)); s.listen(); "
-                        "print(s.getsockname()[1],flush=True); r=Receiver(s,'%2'); print(r.text,flush=True)")
-                    .arg(SOURCE_DIR)
-                    .arg(mode);
+            const QString script = QString("import sys,socket; sys.path.insert(0, '%1/tests'); from fake_receiver import "
+                                           "Receiver; s=socket.socket(); s.bind(('127.0.0.1',0)); s.listen(); "
+                                           "print(s.getsockname()[1],flush=True); r=Receiver(s,'%2'); print(r.text,flush=True)")
+                                       .arg(SOURCE_DIR)
+                                       .arg(mode);
             process.start(QStringLiteral(PYTHON_EXECUTABLE), {"-c", script});
             if (!process.waitForReadyRead(5000))
                 return quint16(0);
@@ -422,7 +444,8 @@ class GuiTests : public QObject {
         QTRY_VERIFY(dialog.isNull());
     }
 };
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
     QTemporaryDir config;
     qputenv("XDG_CONFIG_HOME", config.path().toUtf8());
     QApplication app(argc, argv);
@@ -432,9 +455,8 @@ int main(int argc, char **argv) {
     Notifications notificationService;
     notifications = &notificationService;
     auto bus = QDBusConnection::sessionBus();
-    if (!bus.registerService("org.freedesktop.Notifications") ||
-        !bus.registerObject("/org/freedesktop/Notifications", notifications,
-                            QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals))
+    if (!bus.registerService("org.freedesktop.Notifications")
+        || !bus.registerObject("/org/freedesktop/Notifications", notifications, QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals))
         return 1;
     QSettings().setValue("listenPort", 0);
     GuiTests tests;

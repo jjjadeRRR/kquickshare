@@ -4,22 +4,24 @@
 
 #include <QtEndian>
 
-namespace frames {
-
-namespace {
-constexpr int kOsTypeLinux = 100;
-
-QByteArray gcmMetadata()
+namespace frames
 {
-    // GcmMetadata { type = DEVICE_TO_DEVICE_MESSAGE(13), version = 1 }
-    return pb::Writer().varint(1, 13).varint(2, 1).data();
-}
 
-QByteArray offlineV1(pb::Writer &v1)
+namespace
 {
-    // OfflineFrame { version = V1(1), v1 = <v1> }
-    return pb::Writer().varint(1, 1).bytes(2, v1.data()).data();
-}
+    constexpr int kOsTypeLinux = 100;
+
+    QByteArray gcmMetadata()
+    {
+        // GcmMetadata { type = DEVICE_TO_DEVICE_MESSAGE(13), version = 1 }
+        return pb::Writer().varint(1, 13).varint(2, 1).data();
+    }
+
+    QByteArray offlineV1(pb::Writer &v1)
+    {
+        // OfflineFrame { version = V1(1), v1 = <v1> }
+        return pb::Writer().varint(1, 1).bytes(2, v1.data()).data();
+    }
 } // namespace
 
 // ---------------- Stream framing ----------------
@@ -77,12 +79,17 @@ bool parseOfflineFrame(const QByteArray &data, OfflineFrame &out)
         return true;
     }
     case OfflineFrameType::ConnectionResponse: {
-        QByteArray raw; QVector<pb::Field> fields; uint64_t response = 0, status = 1;
-        if (!pb::fieldBytes(v1, 3, raw) || !pb::parseMessage(raw, fields)) return false;
+        QByteArray raw;
+        QVector<pb::Field> fields;
+        uint64_t response = 0, status = 1;
+        if (!pb::fieldBytes(v1, 3, raw) || !pb::parseMessage(raw, fields))
+            return false;
         if (!pb::fieldVarint(fields, 3, response)) {
-            if (pb::fieldVarint(fields, 1, status) && status == 0) response = 1;
+            if (pb::fieldVarint(fields, 1, status) && status == 0)
+                response = 1;
         }
-        out.connectionResponse = int(response); return true;
+        out.connectionResponse = int(response);
+        return true;
     }
     case OfflineFrameType::PayloadTransfer: {
         QByteArray pt;
@@ -140,12 +147,11 @@ QByteArray buildConnectionResponseAccept()
     pb::Writer osInfo;
     osInfo.varint(1, kOsTypeLinux);
     pb::Writer resp;
-    resp.varint(1, 0)          // legacy status
-        .varint(3, 1)          // response = ACCEPT
+    resp.varint(1, 0) // legacy status
+        .varint(3, 1) // response = ACCEPT
         .bytes(4, osInfo.data());
     pb::Writer v1;
-    v1.varint(1, int(OfflineFrameType::ConnectionResponse))
-        .bytes(3, resp.data());
+    v1.varint(1, int(OfflineFrameType::ConnectionResponse)).bytes(3, resp.data());
     return offlineV1(v1);
 }
 
@@ -154,8 +160,7 @@ QByteArray buildKeepAliveOfflineFrame(bool ack)
     pb::Writer ka;
     ka.varint(1, ack ? 1 : 0);
     pb::Writer v1;
-    v1.varint(1, int(OfflineFrameType::KeepAlive))
-        .bytes(6, ka.data());
+    v1.varint(1, int(OfflineFrameType::KeepAlive)).bytes(6, ka.data());
     return offlineV1(v1);
 }
 
@@ -163,21 +168,16 @@ QByteArray buildDisconnectionOfflineFrame()
 {
     pb::Writer disc; // empty DisconnectionFrame
     pb::Writer v1;
-    v1.varint(1, int(OfflineFrameType::Disconnection))
-        .bytes(7, disc.data());
+    v1.varint(1, int(OfflineFrameType::Disconnection)).bytes(7, disc.data());
     return offlineV1(v1);
 }
 
 QByteArray buildPayloadTransfer(const PayloadHeader &header, const PayloadChunk &chunk)
 {
     pb::Writer h;
-    h.svarint64(1, header.id)
-        .varint(2, uint64_t(header.type))
-        .svarint64(3, header.totalSize)
-        .varint(4, 0); // is_sensitive = false
+    h.svarint64(1, header.id).varint(2, uint64_t(header.type)).svarint64(3, header.totalSize).varint(4, 0); // is_sensitive = false
     pb::Writer c;
-    c.varint(1, uint64_t(chunk.flags))
-        .svarint64(2, chunk.offset);
+    c.varint(1, uint64_t(chunk.flags)).svarint64(2, chunk.offset);
     if (chunk.hasBody)
         c.bytes(3, chunk.body);
     pb::Writer pt;
@@ -185,8 +185,7 @@ QByteArray buildPayloadTransfer(const PayloadHeader &header, const PayloadChunk 
         .bytes(2, h.data())
         .bytes(3, c.data());
     pb::Writer v1;
-    v1.varint(1, int(OfflineFrameType::PayloadTransfer))
-        .bytes(4, pt.data());
+    v1.varint(1, int(OfflineFrameType::PayloadTransfer)).bytes(4, pt.data());
     return offlineV1(v1);
 }
 
@@ -258,8 +257,7 @@ bool parseUkey2ClientInit(const QByteArray &data, Ukey2ClientInit &out)
             continue;
         uint64_t cipher = 0;
         QByteArray commitment;
-        if (pb::fieldVarint(c, 1, cipher) && pb::fieldBytes(c, 2, commitment)
-            && cipher == 100) { // P256_SHA512
+        if (pb::fieldVarint(c, 1, cipher) && pb::fieldBytes(c, 2, commitment) && cipher == 100) { // P256_SHA512
             out.p256Commitment = commitment;
         }
     }
@@ -293,16 +291,17 @@ QByteArray buildUkey2ServerInit(const QByteArray &signedX, const QByteArray &sig
     pb::Writer ec;
     ec.bytes(1, signedX).bytes(2, signedY);
     pb::Writer pubKey;
-    pubKey.varint(1, 1) // EC_P256
+    pubKey
+        .varint(1, 1) // EC_P256
         .bytes(2, ec.data());
     pb::Writer serverInit;
-    serverInit.varint(1, 1) // version
+    serverInit
+        .varint(1, 1) // version
         .bytes(2, crypto::randomBytes(32))
         .varint(3, 100) // P256_SHA512
         .bytes(4, pubKey.data());
     pb::Writer msg;
-    msg.varint(1, int(Ukey2Type::ServerInit))
-        .bytes(2, serverInit.data());
+    msg.varint(1, int(Ukey2Type::ServerInit)).bytes(2, serverInit.data());
     return msg.data();
 }
 
@@ -311,17 +310,16 @@ QByteArray buildUkey2Alert(int alertType)
     pb::Writer alert;
     alert.varint(1, uint64_t(alertType));
     pb::Writer msg;
-    msg.varint(1, int(Ukey2Type::Alert))
-        .bytes(2, alert.data());
+    msg.varint(1, int(Ukey2Type::Alert)).bytes(2, alert.data());
     return msg.data();
 }
 
 bool deriveUkey2Keys(EVP_PKEY *ourKey,
-                     const QByteArray &peerX,
-                     const QByteArray &peerY,
-                     const QByteArray &clientInit,
-                     const QByteArray &serverInit,
-                     Ukey2Keys &out)
+    const QByteArray &peerX,
+    const QByteArray &peerY,
+    const QByteArray &clientInit,
+    const QByteArray &serverInit,
+    Ukey2Keys &out)
 {
     // Key schedule: docs/protocol.md
     const QByteArray shared = crypto::ecdhSharedX(ourKey, peerX, peerY);
@@ -357,8 +355,7 @@ QString pinCode(const QByteArray &authString)
 
 // ---------------- SecureMessage ----------------
 
-QByteArray encryptOfflineFrame(const QByteArray &serializedOfflineFrame, qint32 sequence,
-                               const QByteArray &encryptKey, const QByteArray &sendHmacKey)
+QByteArray encryptOfflineFrame(const QByteArray &serializedOfflineFrame, qint32 sequence, const QByteArray &encryptKey, const QByteArray &sendHmacKey)
 {
     // DeviceToDeviceMessage { message = 1, sequence_number = 2 }
     pb::Writer d2d;
@@ -368,8 +365,9 @@ QByteArray encryptOfflineFrame(const QByteArray &serializedOfflineFrame, qint32 
     const QByteArray encrypted = crypto::aes256CbcEncrypt(encryptKey, iv, d2d.data());
 
     pb::Writer header;
-    header.varint(1, 1) // HMAC_SHA256
-        .varint(2, 2)   // AES_256_CBC
+    header
+        .varint(1, 1) // HMAC_SHA256
+        .varint(2, 2) // AES_256_CBC
         .bytes(5, iv)
         .bytes(6, gcmMetadata());
     pb::Writer hab;
@@ -381,8 +379,11 @@ QByteArray encryptOfflineFrame(const QByteArray &serializedOfflineFrame, qint32 
     return smsg.data();
 }
 
-bool decryptSecureMessage(const QByteArray &data, const QByteArray &decryptKey, const QByteArray &recvHmacKey,
-                          qint32 expectedSequence, QByteArray &offlineFrameOut)
+bool decryptSecureMessage(const QByteArray &data,
+    const QByteArray &decryptKey,
+    const QByteArray &recvHmacKey,
+    qint32 expectedSequence,
+    QByteArray &offlineFrameOut)
 {
     QVector<pb::Field> f;
     if (!pb::parseMessage(data, f))
@@ -403,8 +404,8 @@ bool decryptSecureMessage(const QByteArray &data, const QByteArray &decryptKey, 
     if (!pb::parseMessage(headerRaw, header))
         return false;
     uint64_t sigScheme = 0, encScheme = 0;
-    if (!pb::fieldVarint(header, 1, sigScheme) || sigScheme != 1
-        || !pb::fieldVarint(header, 2, encScheme) || encScheme != 2) return false;
+    if (!pb::fieldVarint(header, 1, sigScheme) || sigScheme != 1 || !pb::fieldVarint(header, 2, encScheme) || encScheme != 2)
+        return false;
     QByteArray iv;
     if (!pb::fieldBytes(header, 5, iv) || iv.size() != 16)
         return false;
@@ -441,8 +442,11 @@ bool parseSharingFrame(const QByteArray &data, SharingFrame &out)
     out.type = SharingFrameType(type);
 
     if (out.type == SharingFrameType::Response) {
-        QByteArray raw; QVector<pb::Field> fields; uint64_t status = 0;
-        if (!pb::fieldBytes(v1, 3, raw) || !pb::parseMessage(raw, fields) || !pb::fieldVarint(fields, 1, status)) return false;
+        QByteArray raw;
+        QVector<pb::Field> fields;
+        uint64_t status = 0;
+        if (!pb::fieldBytes(v1, 3, raw) || !pb::parseMessage(raw, fields) || !pb::fieldVarint(fields, 1, status))
+            return false;
         out.responseStatus = int(status);
     } else if (out.type == SharingFrameType::Introduction) {
         QByteArray intro;
@@ -500,10 +504,10 @@ QByteArray buildPairedKeyEncryptionFrame(const QByteArray &qrSignature)
     pb::Writer pke;
     pke.bytes(1, crypto::randomBytes(72)) // signed_data
         .bytes(2, crypto::randomBytes(6)); // secret_id_hash
-    if (!qrSignature.isEmpty()) pke.bytes(4, qrSignature);
+    if (!qrSignature.isEmpty())
+        pke.bytes(4, qrSignature);
     pb::Writer v1;
-    v1.varint(1, int(SharingFrameType::PairedKeyEncryption))
-        .bytes(4, pke.data());
+    v1.varint(1, int(SharingFrameType::PairedKeyEncryption)).bytes(4, pke.data());
     return sharingV1(v1);
 }
 
@@ -512,8 +516,7 @@ QByteArray buildPairedKeyResultFrame()
     pb::Writer pkr;
     pkr.varint(1, 3); // status = UNABLE
     pb::Writer v1;
-    v1.varint(1, int(SharingFrameType::PairedKeyResult))
-        .bytes(5, pkr.data());
+    v1.varint(1, int(SharingFrameType::PairedKeyResult)).bytes(5, pkr.data());
     return sharingV1(v1);
 }
 
@@ -522,8 +525,7 @@ QByteArray buildSharingResponseFrame(int status)
     pb::Writer resp;
     resp.varint(1, uint64_t(status));
     pb::Writer v1;
-    v1.varint(1, int(SharingFrameType::Response))
-        .bytes(3, resp.data());
+    v1.varint(1, int(SharingFrameType::Response)).bytes(3, resp.data());
     return sharingV1(v1);
 }
 
