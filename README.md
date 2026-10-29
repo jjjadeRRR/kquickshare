@@ -18,7 +18,7 @@ Quick Share over your local network; no companion Android app is needed.
 ## Features
 
 - Plasma tray icon, native KDE notifications and a Qt Widgets interface.
-- Receive files into `~/Downloads`; accept or reject from a notification.
+- Receive files into your Downloads folder; accept or reject from a notification.
 - Optional automatic reception from explicitly trusted devices.
 - Send files from Dolphin's context menu, the application or the tray.
 - Send text with a QR code, including an optional action in Plasma's clipboard history.
@@ -96,7 +96,7 @@ headless installation and build dependencies.
 1. Connect the computer and phone to the same LAN. Ethernet on the PC is fine.
 2. Start KQuickShare and choose Share → Quick Share on Android.
 3. Select the computer, compare the PIN and accept on the PC.
-4. Files appear in `~/Downloads`. Received text is also copied to the clipboard by default.
+4. Files appear in your Downloads folder (`xdg-user-dir DOWNLOAD`). Received text is also copied to the clipboard by default.
    Photos are saved as files. Links are never opened automatically.
 
 For automatic reception, check the trust option in the incoming transfer card
@@ -132,7 +132,7 @@ Click **Apply** to save your choices. Text includes Quick Share text messages
 (such as sharing copied text on Android) and valid UTF-8 `.txt` attachments up to
 5 MiB. Disable saving to keep these text files out of Downloads; disabling both
 text options discards received text. Photos and other files always remain in
-`~/Downloads`.
+Downloads.
 
 The clipboard changes only after a successful text transfer. If several text
 attachments arrive, the last processed text remains in the clipboard. Photos

@@ -8,7 +8,7 @@ body:
     attributes:
       label: Distribution and versions
       description: Include KQuickShare, distribution, Plasma, Qt and session (Wayland/X11) versions.
-      placeholder: KQuickShare 0.4.0, Debian 13, Plasma 6.3, Qt 6.8, Wayland
+      placeholder: KQuickShare 0.5.0, Debian 13, Plasma 6.3, Qt 6.8, Wayland
     validations:
       required: true
   - type: input

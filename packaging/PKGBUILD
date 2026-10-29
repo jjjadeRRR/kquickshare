@@ -1,5 +1,5 @@
 pkgname=kquickshare
-pkgver=0.4.0
+pkgver=0.5.0
 pkgrel=1
 pkgdesc='Send and receive Android Quick Share files and text on KDE Plasma'
 arch=('x86_64' 'aarch64')
@@ -9,7 +9,7 @@ depends=('qt6-svg' 'qt6-base>=6.8' 'qt6-wayland' 'openssl' 'knotifications' 'kst
 makedepends=('cmake' 'ninja' 'qt6-tools')
 optdepends=('plasma-workspace: optional clipboard-history integration for Plasma 6.8')
 source=("$url/releases/download/v$pkgver/$pkgname-$pkgver.tar.gz")
-sha256sums=('2d0eacada6352ae9a5489e9b54150ab97733d0999bf5d996595b45192d8ebdad')
+sha256sums=('67c1d3d6c3dfaf39f6246322b5c48a0179cf9aacda11aaed31bd074c8f7f8926')
 
 build() {
     cmake -S "$srcdir/$pkgname-$pkgver" -B "$srcdir/build" -G Ninja \

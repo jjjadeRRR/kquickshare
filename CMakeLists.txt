@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.19)
-project(kquickshare VERSION 0.4.0 LANGUAGES CXX)
+project(kquickshare VERSION 0.5.0 LANGUAGES CXX)
 
 add_compile_definitions(KQUICKSHARE_VERSION="${PROJECT_VERSION}")
 
