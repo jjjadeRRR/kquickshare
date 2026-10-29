@@ -10,7 +10,7 @@ Url: https://github.com/jjjadeRRR/kquickshare
 Source: %name-%version.tar.gz
 
 BuildRequires(pre): rpm-macros-cmake
-BuildRequires: cmake ninja-build gcc-c++
+BuildRequires: cmake ctest ninja-build gcc-c++
 BuildRequires: qt6-base-devel qt6-tools-devel libssl-devel
 BuildRequires: kf6-knotifications-devel kf6-kstatusnotifieritem-devel kf6-prison-devel kf6-kguiaddons-devel
 # %%check: encrypted transfer peers and the GUI tests on a private session bus

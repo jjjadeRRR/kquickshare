@@ -49,8 +49,8 @@ with a Pixel 7 Pro. Plasma 5 is not supported.
 
 [Releases](https://github.com/jjjadeRRR/kquickshare/releases) include a source
 archive and distribution-specific packages. Choose the package matching your
-system; a Debian 13 `.deb` is not a universal Ubuntu package, and a Fedora 43 RPM
-is not an openSUSE package. If no matching package is available, use the source
+system; a Debian 13 `.deb` is not a universal Ubuntu package, and the Fedora 43 and
+ALT Linux p11 RPMs are not interchangeable or openSUSE packages. If no matching package is available, use the source
 installer below. Packages do not enable autostart, firewall rules or the private
 clipboard-history overlay automatically.
 

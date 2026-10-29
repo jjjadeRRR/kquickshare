@@ -13,7 +13,7 @@
 
 Основное приложение рассчитано на **Plasma 6**, Qt **6.8+** и KDE Frameworks **6.0+**.
 Установщик определяет семейства Arch, Debian/Ubuntu, Fedora и openSUSE.
-Сборка и автоматические проверки выполняются на Arch, Debian 13 и Fedora 43;
+Сборка и автоматические проверки выполняются на Arch, Debian 13, Fedora 43 и ALT Linux p11;
 Ubuntu 26.04 включена в CI. С настоящим телефоном пока в основном проверяли
 Arch / Plasma 6.8 / Pixel 7 Pro. Plasma 5 не поддерживается.
 
