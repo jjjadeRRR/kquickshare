@@ -13,7 +13,7 @@
 SendDialog::SendDialog(const QStringList &files, const QString &text, QWidget *parent)
     : QDialog(parent), m_discovery(this), m_files(files), m_text(text) {
     setAttribute(Qt::WA_DeleteOnClose);
-    setWindowTitle(tr("Отправить через KQuickShare"));
+    setWindowTitle(tr("Send with KQuickShare"));
     resize(510, 650);
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(20, 20, 20, 20);
@@ -22,17 +22,16 @@ SendDialog::SendDialog(const QStringList &files, const QString &text, QWidget *p
     summary->setTextFormat(Qt::PlainText);
     summary->setWordWrap(true);
     if (files.isEmpty())
-        summary->setText(tr("Текст: %1").arg(text.left(180)));
+        summary->setText(tr("Text: %1").arg(text.left(180)));
     else {
         QStringList names;
         for (const auto &path : files.mid(0, 4))
             names << QFileInfo(path).fileName();
-        summary->setText(tr("Файлов: %1\n%2").arg(files.size()).arg(names.join('\n')));
+        summary->setText(tr("Files: %1\n%2").arg(files.size()).arg(names.join('\n')));
     }
     layout->addWidget(summary);
     auto *hint =
-        new QLabel(tr("Сканируйте QR-код камерой телефона и откройте ссылку Quick Share. Телефон и ПК должны "
-                   "быть в одной сети. Либо откройте на телефоне Files by Google → Quick Share → Получить."));
+        new QLabel(tr("Scan the QR code with your phone camera and open the Quick Share link. Your phone and PC must be on the same network. Alternatively, open Files by Google → Quick Share → Receive on your phone."));
     hint->setWordWrap(true);
     layout->addWidget(hint);
     m_qrKey = crypto::generateP256();
@@ -60,7 +59,7 @@ SendDialog::SendDialog(const QStringList &files, const QString &text, QWidget *p
     m_pin = new QLabel;
     m_pin->setTextFormat(Qt::PlainText);
     layout->addWidget(m_pin);
-    m_status = new QLabel(tr("Поиск телефонов в локальной сети…"));
+    m_status = new QLabel(tr("Searching for phones on the local network…"));
     m_status->setTextFormat(Qt::PlainText);
     m_status->setWordWrap(true);
     layout->addWidget(m_status);
@@ -70,11 +69,11 @@ SendDialog::SendDialog(const QStringList &files, const QString &text, QWidget *p
     m_progress->hide();
     layout->addWidget(m_progress);
     auto *buttons = new QHBoxLayout;
-    m_send = new QPushButton(QIcon::fromTheme("document-send"), tr("Отправить"));
+    m_send = new QPushButton(QIcon::fromTheme("document-send"), tr("Send"));
     m_send->setObjectName("sendButton");
     m_send->setEnabled(false);
     buttons->addWidget(m_send);
-    auto *close = new QPushButton(tr("Закрыть"));
+    auto *close = new QPushButton(tr("Close"));
     buttons->addWidget(close);
     layout->addLayout(buttons);
     connect(close, &QPushButton::clicked, this, &SendDialog::reject);
@@ -117,8 +116,8 @@ void SendDialog::updateDevices() {
     if (m_list->currentRow() < 0 && m_list->count() == 1)
         m_list->setCurrentRow(0);
     m_status->setText((m_lastError.isEmpty() ? QString() : m_lastError + "\n") +
-                      (m_devices.isEmpty() ? tr("Поиск телефонов… Откройте на телефоне экран приёма Quick Share.")
-                                           : tr("Выберите телефон и нажмите «Отправить».")));
+                      (m_devices.isEmpty() ? tr("Searching for phones… Open the Quick Share receive screen on your phone.")
+                                           : tr("Select a phone and click Send.")));
 }
 void SendDialog::send() {
     const int row = m_list->currentRow();
@@ -145,7 +144,7 @@ void SendDialog::send() {
     m_progress->show();
     connect(connection, &OutboundConnection::statusChanged, m_status, &QLabel::setText);
     connect(connection, &OutboundConnection::verificationCode, this,
-            [this](const QString &pin) { m_pin->setText(tr("PIN %1 — сверьте код на телефоне").arg(pin)); });
+            [this](const QString &pin) { m_pin->setText(tr("PIN %1 — compare the code on your phone").arg(pin)); });
     connect(connection, &OutboundConnection::progress, this, [this](qint64 sent, qint64 total) {
         m_progress->setValue(int(1000.0 * sent / qMax(qint64(1), total)));
     });
@@ -154,12 +153,12 @@ void SendDialog::send() {
                 m_connection = nullptr;
                 connection->deleteLater();
                 qInfo("Quick Share outbound finished: error=%s", qPrintable(error));
-                m_status->setText(error.isEmpty() ? tr("Отправлено на «%1»").arg(device.name) : error);
+                m_status->setText(error.isEmpty() ? tr("Sent to «%1»").arg(device.name) : error);
                 if (error.isEmpty())
                     m_progress->setValue(1000);
                 if (!error.isEmpty() && !m_shuttingDown) {
                     m_lastError = error;
-                    m_send->setText(tr("Повторить"));
+                    m_send->setText(tr("Retry"));
                     m_list->setEnabled(true);
                     m_discovery.start();
                     updateDevices();

@@ -205,7 +205,7 @@ class GuiTests : public QObject {
         QPushButton *accept = nullptr;
         QTRY_VERIFY_WITH_TIMEOUT(([&] {
             for (auto *button : receiver.findChildren<QPushButton *>())
-                if (button->text() == "Принять") { accept = button; return true; }
+                if (button->text() == "Accept") { accept = button; return true; }
             return false;
         })(), 8000);
         QTest::mouseClick(accept, Qt::LeftButton);
@@ -331,11 +331,11 @@ class GuiTests : public QObject {
         receiver.grab().save(QString(SOURCE_DIR) + "/build/preview.png");
         QPushButton *accept = nullptr;
         for (auto *button : card->findChildren<QPushButton *>())
-            if (button->text() == "Принять")
+            if (button->text() == "Accept")
                 accept = button;
         QVERIFY(accept);
-        QTRY_VERIFY_WITH_TIMEOUT(notifications->title.contains("отправляет"), 8000);
-        const int buttonIndex = notifications->actions.indexOf("Принять");
+        QTRY_VERIFY_WITH_TIMEOUT(notifications->title.contains("is sending files"), 8000);
+        const int buttonIndex = notifications->actions.indexOf("Accept");
         QVERIFY(buttonIndex > 0);
         emit notifications->ActionInvoked(notifications->next, notifications->actions[buttonIndex - 1]);
         QTRY_COMPARE_WITH_TIMEOUT(first.state(), QProcess::NotRunning, 8000);
@@ -366,7 +366,7 @@ class GuiTests : public QObject {
         QVERIFY(!QFileInfo::exists(downloads.filePath("received (2).txt")));
         QPushButton *reject = nullptr;
         for (auto *button : unknown->findChildren<QPushButton *>())
-            if (button->text() == "Отклонить")
+            if (button->text() == "Reject")
                 reject = button;
         QVERIFY(reject);
         QTest::mouseClick(reject, Qt::LeftButton);
@@ -403,7 +403,7 @@ class GuiTests : public QObject {
         QVERIFY(!entries.isEmpty());
         list->setCurrentItem(entries.first());
         QTest::mouseClick(send, Qt::LeftButton);
-        QTRY_VERIFY_WITH_TIMEOUT(dialog->status().contains("отклонил"), 8000);
+        QTRY_VERIFY_WITH_TIMEOUT(dialog->status().contains("rejected"), 8000);
         QTRY_COMPARE_WITH_TIMEOUT(rejected.state(), QProcess::NotRunning, 5000);
         QProcess accepted;
         const auto secondPort = startReceiver(accepted, "accept");
@@ -414,7 +414,7 @@ class GuiTests : public QObject {
         list->setCurrentItem(entries.first());
         QVERIFY(send->isEnabled());
         QTest::mouseClick(send, Qt::LeftButton);
-        QTRY_VERIFY_WITH_TIMEOUT(dialog->status().startsWith("Отправлено"), 8000);
+        QTRY_VERIFY_WITH_TIMEOUT(dialog->status().startsWith("Sent to"), 8000);
         QTRY_COMPARE_WITH_TIMEOUT(accepted.state(), QProcess::NotRunning, 5000);
         QCOMPARE(accepted.exitCode(), 0);
         QCOMPARE(accepted.readAllStandardOutput().trimmed(), QByteArray("Retry fixture text"));

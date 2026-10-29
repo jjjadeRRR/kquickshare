@@ -67,8 +67,8 @@ systemd service files. `cmake --install --prefix` alone does not rewrite those p
 
 ## Translations
 
-The original source strings are Russian. `translations/kquickshare_en.ts` contains
-the English translation and is compiled into a Qt resource. The application uses
+Source strings are English. `translations/kquickshare_ru.ts` contains the Russian
+translation and is compiled into a Qt resource. The application uses
 the first supported language in Qt’s system UI language preferences, falling back
 to English. Language is selected at startup. No translation files are downloaded.
 

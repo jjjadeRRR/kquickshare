@@ -16,17 +16,17 @@ int main(int argc, char *argv[])
     QCoreApplication::setApplicationVersion(QStringLiteral(KQUICKSHARE_VERSION));
 
     QCommandLineParser parser;
-    parser.setApplicationDescription(QStringLiteral("Приёмник Quick Share (Nearby Share) без GUI"));
+    parser.setApplicationDescription(QStringLiteral("Headless Quick Share (Nearby Share) receiver"));
     parser.addHelpOption();
     parser.addVersionOption();
     const QCommandLineOption destOption({QStringLiteral("d"), QStringLiteral("dest")},
-                                        QStringLiteral("Папка для сохранения файлов"), QStringLiteral("dir"),
+                                        QStringLiteral("Directory for received files"), QStringLiteral("dir"),
                                         QDir::currentPath());
     const QCommandLineOption nameOption({QStringLiteral("n"), QStringLiteral("name")},
-                                        QStringLiteral("Видимое имя устройства"), QStringLiteral("name"),
+                                        QStringLiteral("Visible device name"), QStringLiteral("name"),
                                         QHostInfo::localHostName());
     const QCommandLineOption onceOption(QStringLiteral("once"),
-                                        QStringLiteral("Завершиться после первой передачи"));
+                                        QStringLiteral("Exit after the first transfer"));
     parser.addOption(destOption);
     parser.addOption(nameOption);
     parser.addOption(onceOption);
@@ -37,22 +37,22 @@ int main(int argc, char *argv[])
 
     NearbyServer server;
     QObject::connect(&server, &NearbyServer::started, &app, [](const QString &service, quint16 port) {
-        qInfo("Анонсирован сервис %s на порту %u — устройство видно в Quick Share",
+        qInfo("Advertising service %s on port %u; the device is visible in Quick Share",
               qPrintable(service), port);
     });
     QObject::connect(&server, &NearbyServer::errorOccurred, &app, [](const QString &message) {
-        qWarning("Ошибка: %s", qPrintable(message));
+        qWarning("Error: %s", qPrintable(message));
     });
     QObject::connect(&server, &NearbyServer::transferRequested, &app,
                      [&server, destDir](InboundConnection *conn, const TransferRequest &request) {
                          if (!request.files.isEmpty()) {
-                             qInfo("Входящая передача от %s (PIN %s):", qPrintable(request.deviceName),
+                             qInfo("Incoming transfer from %s (PIN %s):", qPrintable(request.deviceName),
                                    qPrintable(request.pinCode));
                              for (const IncomingFile &f : request.files)
-                                 qInfo("  %s (%lld байт, %s)", qPrintable(f.name), f.size,
+                                 qInfo("  %s (%lld bytes, %s)", qPrintable(f.name), f.size,
                                        qPrintable(f.mimeType));
                          } else {
-                             qInfo("Входящий текст от %s (PIN %s): %s", qPrintable(request.deviceName),
+                             qInfo("Incoming text from %s (PIN %s): %s", qPrintable(request.deviceName),
                                    qPrintable(request.pinCode), qPrintable(request.textTitle));
                          }
                          conn->acceptTransfer(destDir);
@@ -63,15 +63,15 @@ int main(int argc, char *argv[])
                      });
     QObject::connect(&server, &NearbyServer::textReceived, &app,
                      [](InboundConnection *, const QString &text, int) {
-                         qInfo("Получен текст: %s", qPrintable(text));
+                         qInfo("Received text: %s", qPrintable(text));
                      });
     QObject::connect(&server, &NearbyServer::connectionFinished, &app,
                      [&app, once](InboundConnection *, const QStringList &savedFiles, const QString &error) {
                          if (error.isEmpty()) {
                              for (const QString &path : savedFiles)
-                                 qInfo("Сохранено: %s", qPrintable(path));
+                                 qInfo("Saved: %s", qPrintable(path));
                          } else {
-                             qWarning("Передача завершилась: %s", qPrintable(error));
+                             qWarning("Transfer failed: %s", qPrintable(error));
                          }
                          if (once)
                              QTimer::singleShot(0, &app, &QCoreApplication::quit);

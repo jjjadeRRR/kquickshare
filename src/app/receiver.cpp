@@ -82,21 +82,19 @@ Receiver::Receiver(const QString &destinationOverride)
     auto *receive = new QWidget;
     m_transfers = new QVBoxLayout(receive);
     m_transfers->setAlignment(Qt::AlignTop);
-    m_empty = label(tr("Готово к передаче\n\nНа телефоне выберите файл → Поделиться "
-                    "→ Quick Share → имя этого компьютера.\n\nТелефон и "
-                    "компьютер должны быть в одной локальной сети."));
+    m_empty = label(tr("Ready to share\n\nOn your phone, select a file → Share → Quick Share → this computer’s name.\n\nThe phone and computer must be on the same local network."));
     m_transfers->addWidget(m_empty);
     scroll->setWidget(receive);
-    tabs->addTab(scroll, QIcon::fromTheme("folder-download"), tr("Передачи"));
+    tabs->addTab(scroll, QIcon::fromTheme("folder-download"), tr("Transfers"));
     auto *settings = new QWidget;
     auto *form = new QFormLayout(settings);
     form->setSpacing(14);
-    m_enabled = new QCheckBox(tr("Принимать файлы"));
+    m_enabled = new QCheckBox(tr("Receive files"));
     m_enabled->setChecked(m_settings.value("enabled", true).toBool());
     form->addRow(m_enabled);
     m_name = new QLineEdit(m_settings.value("name", QHostInfo::localHostName()).toString());
     m_name->setMaxLength(60);
-    form->addRow(tr("Имя компьютера:"), m_name);
+    form->addRow(tr("Computer name:"), m_name);
     auto *folderRow = new QWidget;
     auto *folderLayout = new QHBoxLayout(folderRow);
     folderLayout->setContentsMargins(0, 0, 0, 0);
@@ -104,15 +102,15 @@ Receiver::Receiver(const QString &destinationOverride)
     m_folder->setObjectName("downloadDirectory");
     m_folder->setReadOnly(true);
     folderLayout->addWidget(m_folder);
-    form->addRow(tr("Сохранять в:"), folderRow);
+    form->addRow(tr("Save to:"), folderRow);
     m_port = new QSpinBox;
     m_port->setObjectName("listenPort");
     m_port->setRange(0, 65535);
-    m_port->setSpecialValueText(tr("Автоматически"));
+    m_port->setSpecialValueText(tr("Automatic"));
     m_port->setValue(m_settings.value("listenPort", 53318).toInt());
-    m_port->setToolTip(tr("Для брандмауэра разрешите входящий TCP на этот порт и mDNS (UDP 5353) только в доверенной сети. 0 — случайный порт."));
-    form->addRow(tr("TCP-порт приёма:"), m_port);
-    m_autostart = new QCheckBox(tr("Запускать при входе в KDE"));
+    m_port->setToolTip(tr("Allow inbound TCP on this port and mDNS (UDP 5353) in your firewall only on a trusted network. 0 selects a random port."));
+    form->addRow(tr("Receive TCP port:"), m_port);
+    m_autostart = new QCheckBox(tr("Start when logging in to KDE"));
     const QString autostartPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) +
                                   "/autostart/org.kde.kquickshare.desktop";
     m_autostart->setChecked(QFileInfo::exists(autostartPath));
@@ -124,43 +122,40 @@ Receiver::Receiver(const QString &destinationOverride)
         form->addRow(box);
         return box;
     };
-    m_copyText = option(tr("Добавлять полученный текст в буфер обмена"), "copyReceivedText");
-    m_saveText = option(tr("Сохранять текст в виде файла"), "saveReceivedText");
-    m_saveText->setToolTip(tr("Общий текст Quick Share и файлы .txt в UTF-8 до 5 МиБ. Фото всегда сохраняются в Downloads. Если обе настройки текста выключены, текст будет отброшен."));
-    auto *apply = new QPushButton(QIcon::fromTheme("dialog-ok-apply"), tr("Применить"));
+    m_copyText = option(tr("Copy received text to the clipboard"), "copyReceivedText");
+    m_saveText = option(tr("Save received text as a file"), "saveReceivedText");
+    m_saveText->setToolTip(tr("Shared Quick Share text and UTF-8 .txt files up to 5 MiB. Photos are always saved in Downloads. If both text options are disabled, received text is discarded."));
+    auto *apply = new QPushButton(QIcon::fromTheme("dialog-ok-apply"), tr("Apply"));
     apply->setObjectName("applySettings");
     form->addRow(apply);
-    form->addRow(label(tr("Компьютер виден всем в локальной сети, пока приём включён. Для "
-                       "незнакомых устройств всегда требуется подтверждение с PIN-кодом.")));
+    form->addRow(label(tr("The computer is visible to everyone on the local network while reception is enabled. Unknown devices always require approval with a PIN.")));
     auto *settingsScroll = new QScrollArea;
     settingsScroll->setWidgetResizable(true);
     settingsScroll->setFrameShape(QFrame::NoFrame);
     settingsScroll->setWidget(settings);
     form->setSizeConstraint(QLayout::SetMinimumSize);
-    tabs->addTab(settingsScroll, QIcon::fromTheme("configure"), tr("Настройки"));
+    tabs->addTab(settingsScroll, QIcon::fromTheme("configure"), tr("Settings"));
     auto *trustedPage = new QWidget;
     auto *trustedLayout = new QVBoxLayout(trustedPage);
-    trustedLayout->addWidget(label(tr("Доверенные устройства")));
-    trustedLayout->addWidget(label(tr("Автоприём привязан к имени, типу устройства и IP-адресу. Это удобство "
-                                   "для домашней сети, а не проверка ключа телефона. Адрес и имя могут быть "
-                                   "подменены. При смене IP потребуется новое подтверждение.")));
+    trustedLayout->addWidget(label(tr("Trusted devices")));
+    trustedLayout->addWidget(label(tr("Automatic reception matches the device name, type and IP address. This is a convenience for a trusted LAN, not verification of the phone’s key. Names and addresses can be spoofed. A new IP address requires approval again.")));
     m_trusted = new QListWidget;
     trustedLayout->addWidget(m_trusted, 1);
-    auto *remove = new QPushButton(QIcon::fromTheme("list-remove"), tr("Удалить из доверенных"));
+    auto *remove = new QPushButton(QIcon::fromTheme("list-remove"), tr("Remove from trusted devices"));
     trustedLayout->addWidget(remove);
-    tabs->addTab(trustedPage, QIcon::fromTheme("security-high"), tr("Доверенные"));
+    tabs->addTab(trustedPage, QIcon::fromTheme("security-high"), tr("Trusted"));
     refreshTrusted();
     auto *sendRow = new QHBoxLayout;
-    auto *sendFilesButton = new QPushButton(QIcon::fromTheme("document-send"), tr("Отправить файлы…"));
-    auto *sendTextButton = new QPushButton(QIcon::fromTheme("edit-paste"), tr("Отправить текст из буфера…"));
+    auto *sendFilesButton = new QPushButton(QIcon::fromTheme("document-send"), tr("Send files…"));
+    auto *sendTextButton = new QPushButton(QIcon::fromTheme("edit-paste"), tr("Send clipboard text…"));
     sendRow->addWidget(sendFilesButton); sendRow->addWidget(sendTextButton); layout->addLayout(sendRow);
     connect(sendFilesButton, &QPushButton::clicked, this, [this] {
-        const auto paths = QFileDialog::getOpenFileNames(this, tr("Отправить на телефон"), QDir::homePath());
+        const auto paths = QFileDialog::getOpenFileNames(this, tr("Send to phone"), QDir::homePath());
         if (!paths.isEmpty()) sendFiles(paths);
     });
     connect(sendTextButton, &QPushButton::clicked, this, [this] { sendText(KSystemClipboard::instance()->text(QClipboard::Clipboard)); });
     auto *footer = new QHBoxLayout;
-    auto *open = new QPushButton(QIcon::fromTheme("folder-download"), tr("Открыть папку загрузок"));
+    auto *open = new QPushButton(QIcon::fromTheme("folder-download"), tr("Open downloads folder"));
     footer->addWidget(open);
     footer->addStretch();
     layout->addLayout(footer);
@@ -168,9 +163,8 @@ Receiver::Receiver(const QString &destinationOverride)
             [this] { QDesktopServices::openUrl(QUrl::fromLocalFile(destination())); });
     connect(apply, &QPushButton::clicked, this, [this, autostartPath] {
         if (m_server.hasActiveConnections()) {
-            notify("error", tr("Дождитесь завершения передач"),
-                   tr("Настройки можно изменить после завершения или отмены текущих "
-                   "передач."));
+            notify("error", tr("Wait for transfers to finish"),
+                   tr("You can change settings after finishing or cancelling current transfers."));
             return;
         }
         const QString name = m_name->text().trimmed();
@@ -189,9 +183,9 @@ Receiver::Receiver(const QString &destinationOverride)
             QSaveFile f(autostartPath);
             const QByteArray content = "[Desktop Entry]\nType=Application\nName=KQuickShare\nExec=systemctl --user start org.kde.kquickshare.service\nIcon=org.kde.kquickshare\nTerminal=false\n";
             if (!f.open(QIODevice::WriteOnly) || f.write(content) != content.size() || !f.commit())
-                notify("error", tr("Не удалось включить автозапуск"), f.errorString());
+                notify("error", tr("Could not enable startup at login"), f.errorString());
         } else if (QFileInfo::exists(autostartPath) && !QFile::remove(autostartPath))
-            notify("error", tr("Не удалось отключить автозапуск"), autostartPath);
+            notify("error", tr("Could not disable startup at login"), autostartPath);
         m_settings.sync();
         startReceiver();
     });
@@ -207,10 +201,10 @@ Receiver::Receiver(const QString &destinationOverride)
     m_tray->setIconByName("org.kde.kquickshare-symbolic");
     m_tray->setStandardActionsEnabled(false);
     auto *menu = new QMenu(this);
-    menu->addAction(QIcon::fromTheme("org.kde.kquickshare"), tr("Передачи и настройки…"), this, &Receiver::reveal);
-    menu->addAction(tr("Открыть папку загрузок"), this,
+    menu->addAction(QIcon::fromTheme("org.kde.kquickshare"), tr("Transfers and settings…"), this, &Receiver::reveal);
+    menu->addAction(tr("Open downloads folder"), this,
                     [this] { QDesktopServices::openUrl(QUrl::fromLocalFile(destination())); });
-    auto *pause = menu->addAction(tr("Принимать файлы"));
+    auto *pause = menu->addAction(tr("Receive files"));
     pause->setCheckable(true);
     pause->setChecked(m_enabled->isChecked());
     connect(pause, &QAction::triggered, this, [this](bool enabled) {
@@ -220,10 +214,10 @@ Receiver::Receiver(const QString &destinationOverride)
     });
     connect(menu, &QMenu::aboutToShow, this,
             [this, pause] { pause->setChecked(m_settings.value("enabled", true).toBool()); });
-    menu->addAction(QIcon::fromTheme("document-send"), tr("Отправить файлы…"), sendFilesButton, &QPushButton::click);
-    menu->addAction(QIcon::fromTheme("edit-paste"), tr("Отправить текст из буфера…"), sendTextButton, &QPushButton::click);
+    menu->addAction(QIcon::fromTheme("document-send"), tr("Send files…"), sendFilesButton, &QPushButton::click);
+    menu->addAction(QIcon::fromTheme("edit-paste"), tr("Send clipboard text…"), sendTextButton, &QPushButton::click);
     menu->addSeparator();
-    menu->addAction(QIcon::fromTheme("application-exit"), tr("Выйти"), qApp, &QApplication::quit);
+    menu->addAction(QIcon::fromTheme("application-exit"), tr("Exit"), qApp, &QApplication::quit);
     m_tray->setContextMenu(menu);
     connect(m_tray, &KStatusNotifierItem::activateRequested, this, [this] { reveal(); });
     connect(&m_server, &NearbyServer::transferRequested, this, &Receiver::incoming);
@@ -289,10 +283,10 @@ void Receiver::startReceiver() {
 }
 void Receiver::refreshState() {
     const QString text = !m_lastError.isEmpty()  ? m_lastError
-                         : !m_server.isRunning() ? tr("Приём приостановлен")
+                         : !m_server.isRunning() ? tr("Reception paused")
                          : m_active.isEmpty()
-                             ? tr("В сети · %1").arg(m_settings.value("name", QHostInfo::localHostName()).toString())
-                             : tr("Активных передач: %1").arg(m_active.size());
+                             ? tr("Online · %1").arg(m_settings.value("name", QHostInfo::localHostName()).toString())
+                             : tr("Active transfers: %1").arg(m_active.size());
     m_state->setText(text);
     m_tray->setToolTip("org.kde.kquickshare", "KQuickShare", text);
     bool pending = false;
@@ -309,7 +303,7 @@ KNotification *Receiver::notify(const QString &event, const QString &title, cons
     n->setTitle(title);
     n->setText(body.toHtmlEscaped());
     n->setIconName("org.kde.kquickshare");
-    connect(n->addDefaultAction(tr("Открыть KQuickShare")), &KNotificationAction::activated, this,
+    connect(n->addDefaultAction(tr("Open KQuickShare")), &KNotificationAction::activated, this,
             &Receiver::reveal);
     QTimer::singleShot(0, n, &KNotification::sendEvent);
     return n;
@@ -342,8 +336,8 @@ void Receiver::incoming(InboundConnection *conn, const TransferRequest &r) {
         label(r.files.isEmpty()
                   ? r.textTitle
                   : names.mid(0, 5).join('\n') +
-                        (names.size() > 5 ? tr("\n…и ещё %1").arg(names.size() - 5) : QString())));
-    t.status = label(tr("Сверьте PIN-код с телефоном и подтвердите приём."));
+                        (names.size() > 5 ? tr("\n…and %1 more").arg(names.size() - 5) : QString())));
+    t.status = label(tr("Compare the PIN with your phone and approve reception."));
     v->addWidget(t.status);
     t.progress = new QProgressBar;
     t.progress->setRange(0, 1000);
@@ -353,20 +347,19 @@ void Receiver::incoming(InboundConnection *conn, const TransferRequest &r) {
     auto *consent = new QWidget;
     auto *cv = new QVBoxLayout(consent);
     cv->setContentsMargins(0, 0, 0, 0);
-    t.remember = new QCheckBox(tr("Доверять этому устройству в домашней сети"));
-    t.remember->setToolTip(tr("Автоприём по имени, типу и IP-адресу. Без проверки "
-                           "постоянного ключа телефона."));
+    t.remember = new QCheckBox(tr("Trust this device on my home network"));
+    t.remember->setToolTip(tr("Automatic reception matches the name, type and IP address. The phone’s persistent key is not verified."));
     cv->addWidget(t.remember);
     auto *buttons = new QHBoxLayout;
-    auto *yes = new QPushButton(QIcon::fromTheme("dialog-ok"), tr("Принять"));
-    auto *no = new QPushButton(QIcon::fromTheme("dialog-cancel"), tr("Отклонить"));
+    auto *yes = new QPushButton(QIcon::fromTheme("dialog-ok"), tr("Accept"));
+    auto *no = new QPushButton(QIcon::fromTheme("dialog-cancel"), tr("Reject"));
     buttons->addWidget(yes);
     buttons->addWidget(no);
     buttons->addStretch();
     cv->addLayout(buttons);
     t.consent = consent;
     v->addWidget(consent);
-    auto *cancel = new QPushButton(tr("Отменить передачу"));
+    auto *cancel = new QPushButton(tr("Cancel transfer"));
     cancel->hide();
     v->addWidget(cancel);
     QPointer<InboundConnection> safe(conn);
@@ -393,25 +386,25 @@ void Receiver::incoming(InboundConnection *conn, const TransferRequest &r) {
                 if (it == m_active.end())
                     return;
                 it->progress->setValue(int(1000.0 * received / qMax(qint64(1), total)));
-                it->status->setText(tr("Получено %1 из %2").arg(sizeText(received), sizeText(total)));
+                it->status->setText(tr("Received %1 of %2").arg(sizeText(received), sizeText(total)));
             });
     if (m_settings.contains("trusted/" + trustKey(r))) {
         accept(conn);
         cancel->show();
-        auto *n = notify("receiving", tr("Приём от «%1»").arg(r.deviceName),
-                         tr("Автоматический приём · %1").arg(sizeText(r.totalBytes)));
+        auto *n = notify("receiving", tr("Receiving from «%1»").arg(r.deviceName),
+                         tr("Automatic reception · %1").arg(sizeText(r.totalBytes)));
     } else {
         auto *n = notify(
-            "request", tr("«%1» отправляет файлы").arg(r.deviceName),
-            tr("PIN %1 · %2\nСверьте код на телефоне.").arg(r.pinCode, sizeText(r.totalBytes)), true);
+            "request", tr("«%1» is sending files").arg(r.deviceName),
+            tr("PIN %1 · %2\nCompare the code on your phone.").arg(r.pinCode, sizeText(r.totalBytes)), true);
         m_active[conn].notification = n;
-        connect(n->addAction(tr("Принять")), &KNotificationAction::activated, this, [this, safe, cancel] {
+        connect(n->addAction(tr("Accept")), &KNotificationAction::activated, this, [this, safe, cancel] {
             if (safe) {
                 accept(safe);
                 cancel->show();
             }
         });
-        connect(n->addAction(tr("Отклонить")), &KNotificationAction::activated, this, [safe] {
+        connect(n->addAction(tr("Reject")), &KNotificationAction::activated, this, [safe] {
             if (safe)
                 safe->rejectTransfer();
         });
@@ -431,7 +424,7 @@ void Receiver::accept(InboundConnection *conn) {
     it->accepted = true;
     it->consent->hide();
     it->progress->show();
-    it->status->setText(tr("Получение…"));
+    it->status->setText(tr("Receiving…"));
     if (it->notification)
         it->notification->close();
     conn->acceptTransfer(destination());
@@ -463,7 +456,7 @@ void Receiver::finish(InboundConnection *conn, const QStringList &files, const Q
                     "Quick Share " + QDateTime::currentDateTime().toString("yyyy-MM-dd HH-mm-ss") + "-XXXXXX.txt"));
                 const auto bytes = it->text->toUtf8();
                 if (!file.open() || file.write(bytes) != bytes.size() || !file.flush()) {
-                    error = tr("Не удалось сохранить текст на диск");
+                    error = tr("Could not save the text to disk");
                 } else {
                     file.setAutoRemove(false);
                     savedFiles.append(file.fileName());
@@ -487,7 +480,7 @@ void Receiver::finish(InboundConnection *conn, const QStringList &files, const Q
                             if (QFile::remove(path))
                                 savedFiles.removeOne(path);
                             else
-                                error = tr("Не удалось удалить текстовый файл: %1").arg(info.fileName());
+                                error = tr("Could not remove text file: %1").arg(info.fileName());
                         }
                         continue;
                     }
@@ -496,9 +489,9 @@ void Receiver::finish(InboundConnection *conn, const QStringList &files, const Q
 
         }
     }
-    QString result = tr("Получено. Сохранено файлов: %1").arg(savedFiles.size());
+    QString result = tr("Received. Files saved: %1").arg(savedFiles.size());
     if (copied)
-        result += tr(" · Добавлено в буфер обмена");
+        result += tr(" · Copied to the clipboard");
     qInfo("Quick Share finished: files=%lld error=%s", qlonglong(files.size()), qPrintable(error));
     const QString device = it->request.deviceName;
     if (it->notification)
@@ -513,10 +506,10 @@ void Receiver::finish(InboundConnection *conn, const QStringList &files, const Q
     }
     auto *n = notify(
         error.isEmpty() ? "complete" : "error",
-        error.isEmpty() ? tr("Получено от «%1»").arg(device) : tr("Передача от «%1» завершена").arg(device),
+        error.isEmpty() ? tr("Received from «%1»").arg(device) : tr("Transfer from «%1» ended").arg(device),
         error.isEmpty() ? result : error);
     if (error.isEmpty() && !savedFiles.isEmpty())
-        connect(n->addAction(tr("Открыть папку")), &KNotificationAction::activated, this,
+        connect(n->addAction(tr("Open folder")), &KNotificationAction::activated, this,
                 [this] { QDesktopServices::openUrl(QUrl::fromLocalFile(destination())); });
     m_active.erase(it);
     refreshState();
@@ -526,14 +519,14 @@ void Receiver::sendFiles(const QStringList &paths) {
     QStringList local;
     for (const auto &path : paths) {
         const QUrl url = QUrl::fromUserInput(path, QDir::currentPath(), QUrl::AssumeLocalFile);
-        if (!url.isLocalFile()) { notify("error", tr("Нужны локальные файлы"), tr("Сначала сохраните файл на компьютер.")); return; }
+        if (!url.isLocalFile()) { notify("error", tr("Local files are required"), tr("Save the file to your computer first.")); return; }
         local << url.toLocalFile();
     }
     if (local.isEmpty()) return;
     auto *dialog = new SendDialog(local, {}, this); dialog->show(); dialog->raise(); dialog->activateWindow();
 }
 void Receiver::sendText(const QString &text) {
-    if (text.isEmpty()) { notify("error", tr("Буфер обмена пуст"), tr("Скопируйте текст перед отправкой.")); return; }
+    if (text.isEmpty()) { notify("error", tr("The clipboard is empty"), tr("Copy some text before sending.")); return; }
     auto *dialog = new SendDialog({}, text, this); dialog->show(); dialog->raise(); dialog->activateWindow();
 }
 

@@ -24,6 +24,6 @@ both transfer directions with a real phone, tray startup, Dolphin, and received
 text/image clipboard copying. A container build proves library compatibility;
 it does not prove desktop integration or successful Android interoperability.
 
-Translations live in `translations/kquickshare_en.ts`; Russian source strings use
-Qt `tr()`. Preserve original copyright/license notices, particularly in the
+Source strings are English and use Qt `tr()`; the Russian catalog lives in
+`translations/kquickshare_ru.ts`. Preserve original copyright/license notices, particularly in the
 optional KDE clipboard overlay.

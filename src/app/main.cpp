@@ -50,14 +50,14 @@ int main(int argc, char **argv) {
     app.setWindowIcon(QIcon::fromTheme("org.kde.kquickshare"));
     app.setQuitOnLastWindowClosed(false);
     QCommandLineParser parser;
-    parser.setApplicationDescription(QCoreApplication::translate("Main", "Quick Share для KDE Plasma — приём файлов с Android"));
-    parser.addOption({"daemon", QCoreApplication::translate("Main", "Внутренний запуск фоновой службы")});
+    parser.setApplicationDescription(QCoreApplication::translate("Main", "Quick Share for KDE Plasma — Android file transfers"));
+    parser.addOption({"daemon", QCoreApplication::translate("Main", "Internal background service mode")});
     parser.addHelpOption();
     parser.addVersionOption();
-    parser.addOption({"background", QCoreApplication::translate("Main", "Запуск в трее без открытия окна")});
-    parser.addOption({"send", QCoreApplication::translate("Main", "Отправить выбранные файлы на телефон")});
-    parser.addOption({"clipboard", QCoreApplication::translate("Main", "Отправить текст из буфера обмена на телефон")});
-    parser.addPositionalArgument("files", QCoreApplication::translate("Main", "Локальные файлы для отправки"), "[files…]");
+    parser.addOption({"background", QCoreApplication::translate("Main", "Start in the tray without opening a window")});
+    parser.addOption({"send", QCoreApplication::translate("Main", "Send the selected files to a phone")});
+    parser.addOption({"clipboard", QCoreApplication::translate("Main", "Send clipboard text to a phone")});
+    parser.addPositionalArgument("files", QCoreApplication::translate("Main", "Local files to send"), "[files…]");
     parser.process(app);
     const QStringList files = parser.positionalArguments();
     const bool sending = parser.isSet("send") || !files.isEmpty();
@@ -65,12 +65,12 @@ int main(int argc, char **argv) {
     const QString text = clipboard ? QApplication::clipboard()->text() : QString();
     auto bus = QDBusConnection::sessionBus();
     if (!bus.isConnected()) {
-        qCritical("Нет соединения с D-Bus сеансом рабочего стола");
+        qCritical("No connection to the desktop session D-Bus");
         return 1;
     }
     if (!parser.isSet("daemon")) {
         QDBusInterface existing("org.kde.kquickshare", "/Receiver", "org.kde.kquickshare", bus);
-        if (!existing.isValid()) { qCritical("Не удалось запустить службу KQuickShare: %s", qPrintable(existing.lastError().message())); return 1; }
+        if (!existing.isValid()) { qCritical("Could not start the KQuickShare service: %s", qPrintable(existing.lastError().message())); return 1; }
         QDBusMessage reply;
         if (sending) reply = existing.call("SendFiles", files);
         else if (clipboard) reply = existing.call("SendText", text);

@@ -199,7 +199,7 @@ class Transfers(unittest.TestCase):
         ready, _, _ = select.select([self.process.stderr], [], [], 8)
         self.assertTrue(ready, 'receiver did not start')
         line = self.process.stderr.readline().decode()
-        match = re.search(r'порту (\d+)', line)
+        match = re.search(r'on port (\d+)', line)
         self.assertIsNotNone(match, line)
         self.sender = Sender('127.0.0.1', int(match[1]))
 

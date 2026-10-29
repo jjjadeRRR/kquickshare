@@ -103,10 +103,10 @@ if(BUILD_GUI)
     if(TARGET gui-tests)
         list(APPEND KQUICKSHARE_TRANSLATION_TARGETS gui-tests)
     endif()
-    set(QT_I18N_SOURCE_LANGUAGE ru_RU)
+    set(QT_I18N_SOURCE_LANGUAGE en)
     qt_add_translations(TARGETS ${KQUICKSHARE_TRANSLATION_TARGETS}
         SOURCE_TARGETS kqscore kquickshare
-        TS_FILES translations/kquickshare_en.ts
+        TS_FILES translations/kquickshare_ru.ts
         RESOURCE_PREFIX "/i18n"
         NO_GENERATE_PLURALS_TS_FILE)
 endif()

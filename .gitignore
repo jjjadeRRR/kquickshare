@@ -14,3 +14,4 @@ packaging/kquickshare-*.tar.gz
 /packaging/src/
 
 /build-install/
+.serena/

@@ -27,7 +27,7 @@ OutboundConnection::OutboundConnection(QObject *parent) : QObject(parent) {
     m_socket.setReadBufferSize(5 * 1024 * 1024 + 4);
     m_timeout.setSingleShot(true);
     connect(&m_timeout, &QTimer::timeout, this,
-            [this] { complete(tr("Телефон не ответил вовремя")); });
+            [this] { complete(tr("The phone did not respond in time")); });
     connect(&m_keepAlive, &QTimer::timeout, this, [this] {
         if (m_tx && m_state != Done)
             sendSecure(frames::buildKeepAliveOfflineFrame(false));
@@ -42,12 +42,12 @@ OutboundConnection::OutboundConnection(QObject *parent) : QObject(parent) {
         if (m_state == Completing)
             complete();
         else if (m_state != Done)
-            complete(tr("Телефон прервал соединение"));
+            complete(tr("The phone disconnected"));
     });
 }
 bool OutboundConnection::setFiles(const QStringList &paths, QString &error) {
     if (paths.isEmpty() || paths.size() > 1000 || m_state != Idle || !m_files.isEmpty() || m_isText) {
-        error = tr("Выберите от 1 до 1000 файлов");
+        error = tr("Select between 1 and 1000 files");
         return false;
     }
     QMimeDatabase mime;
@@ -56,7 +56,7 @@ bool OutboundConnection::setFiles(const QStringList &paths, QString &error) {
         QFileInfo info(path);
         if (!info.isFile() || !info.isReadable() ||
             info.size() > std::numeric_limits<qint64>::max() - m_total) {
-            error = tr("Файл недоступен: %1").arg(path);
+            error = tr("File is unavailable: %1").arg(path);
             return false;
         }
         auto *file = new QFile(path, this);
@@ -79,7 +79,7 @@ bool OutboundConnection::setFiles(const QStringList &paths, QString &error) {
 }
 bool OutboundConnection::setText(const QString &text, QString &error) {
     if (text.isEmpty() || text.toUtf8().size() > 5 * 1024 * 1024 || m_state != Idle || !m_files.isEmpty()) {
-        error = tr("Нужен текст размером до 5 МиБ");
+        error = tr("Text must be at most 5 MiB");
         return false;
     }
     m_isText = true;
@@ -98,13 +98,13 @@ void OutboundConnection::start(const QHostAddress &address, quint16 port, const 
     qInfo("Quick Share outbound connecting: peer=%s port=%u", qPrintable(address.toString()), port);
     m_state = ServerInit;
     m_timeout.start(15000);
-    emit statusChanged(tr("Подключение к телефону…"));
+    emit statusChanged(tr("Connecting to the phone…"));
     connect(&m_socket, &QTcpSocket::connected, this, [this, localName] {
         m_socket.setSocketOption(QAbstractSocket::LowDelayOption, 1);
         m_key = crypto::generateP256();
         QByteArray x, y;
         if (!m_key || !crypto::p256PublicXY(m_key.get(), x, y)) {
-            complete(tr("Не удалось создать ключ шифрования"));
+            complete(tr("Could not create an encryption key"));
             return;
         }
         const QByteArray pub =
@@ -165,7 +165,7 @@ void OutboundConnection::read() {
         const auto *p = reinterpret_cast<const uchar *>(m_buffer.constData());
         const quint32 n = quint32(p[0]) << 24 | quint32(p[1]) << 16 | quint32(p[2]) << 8 | quint32(p[3]);
         if (n == 0 || n > 5 * 1024 * 1024) {
-            complete(tr("Недопустимый размер кадра"));
+            complete(tr("Invalid frame size"));
             return;
         }
         if (m_buffer.size() < n + 4)
@@ -212,7 +212,7 @@ bool OutboundConnection::derive(const QByteArray &raw) {
 void OutboundConnection::process(const QByteArray &data) {
     if (m_state == ServerInit) {
         if (!derive(data)) {
-            complete(tr("Не удалось согласовать шифрование с телефоном"));
+            complete(tr("Could not negotiate encryption with the phone"));
             return;
         }
         m_state = ConnectionResponse;
@@ -224,7 +224,7 @@ void OutboundConnection::process(const QByteArray &data) {
     if (m_state == ConnectionResponse) {
         if (!frames::parseOfflineFrame(data, frame) ||
             frame.type != frames::OfflineFrameType::ConnectionResponse || frame.connectionResponse != 1) {
-            complete(tr("Телефон отклонил подключение"));
+            complete(tr("The phone rejected the connection"));
             return;
         }
         m_state = PairedEncryption;
@@ -236,7 +236,7 @@ void OutboundConnection::process(const QByteArray &data) {
     QByteArray plain;
     if (!frames::decryptSecureMessage(data, m_dec, m_verify, ++m_rx, plain) ||
         !frames::parseOfflineFrame(plain, frame)) {
-        complete(tr("Ошибка проверки зашифрованного сообщения"));
+        complete(tr("Encrypted message verification failed"));
         return;
     }
     if (frame.type == frames::OfflineFrameType::KeepAlive) {
@@ -245,7 +245,7 @@ void OutboundConnection::process(const QByteArray &data) {
         return;
     }
     if (frame.type == frames::OfflineFrameType::Disconnection) {
-        complete(m_state == Completing ? QString() : tr("Телефон прервал передачу"));
+        complete(m_state == Completing ? QString() : tr("The phone interrupted the transfer"));
         return;
     }
     if (frame.type != frames::OfflineFrameType::PayloadTransfer || !frame.hasPayloadChunk ||
@@ -255,18 +255,18 @@ void OutboundConnection::process(const QByteArray &data) {
     const auto &c = frame.payloadChunk;
     if (h.totalSize < 0 || h.totalSize > 5 * 1024 * 1024 ||
         (!m_bytes.contains(h.id) && m_bytes.size() >= 4)) {
-        complete(tr("Недопустимый размер сообщения"));
+        complete(tr("Invalid message size"));
         return;
     }
     auto &buffer = m_bytes[h.id];
     if (c.offset != buffer.size() || c.body.size() > h.totalSize - buffer.size()) {
-        complete(tr("Повреждённое сообщение телефона"));
+        complete(tr("Invalid message from the phone"));
         return;
     }
     buffer += c.body;
     if (c.flags & 1) {
         if (buffer.size() != h.totalSize) {
-            complete(tr("Неполное сообщение телефона"));
+            complete(tr("Incomplete message from the phone"));
             return;
         }
         const QByteArray payload = buffer;
@@ -277,11 +277,11 @@ void OutboundConnection::process(const QByteArray &data) {
 void OutboundConnection::sharing(const QByteArray &data) {
     frames::SharingFrame frame;
     if (!frames::parseSharingFrame(data, frame)) {
-        complete(tr("Повреждённое сообщение Quick Share"));
+        complete(tr("Invalid Quick Share message"));
         return;
     }
     if (frame.type == frames::SharingFrameType::Cancel) {
-        complete(tr("Отменено на телефоне"));
+        complete(tr("Cancelled on the phone"));
         return;
     }
     if (m_state == PairedEncryption && frame.type == frames::SharingFrameType::PairedKeyEncryption) {
@@ -320,17 +320,17 @@ void OutboundConnection::sharing(const QByteArray &data) {
         m_state = Consent;
         sendSharing(wrap(1, 2, intro));
         m_timeout.start(120000);
-        emit statusChanged(tr("Подтвердите приём на телефоне"));
+        emit statusChanged(tr("Approve reception on your phone"));
     } else if (m_state == Consent && frame.type == frames::SharingFrameType::Response) {
         if (frame.responseStatus != 1) {
-            const QString error = frame.responseStatus == 3   ? tr("На телефоне недостаточно места")
-                                  : frame.responseStatus == 5 ? tr("Время подтверждения истекло")
-                                                              : tr("Телефон отклонил передачу");
+            const QString error = frame.responseStatus == 3   ? tr("Not enough space on the phone")
+                                  : frame.responseStatus == 5 ? tr("Approval timed out")
+                                                              : tr("The phone rejected the transfer");
             complete(error);
             return;
         }
         m_state = Sending;
-        emit statusChanged(tr("Отправка…"));
+        emit statusChanged(tr("Sending…"));
         m_timeout.start(30000);
         pump();
     }
@@ -355,7 +355,7 @@ void OutboundConnection::pump() {
         const auto &meta = file.meta;
         const QByteArray body = file.handle->read(qMin<qint64>(65536, meta.size - file.offset));
         if (body.isEmpty() && file.offset < meta.size) {
-            complete(tr("Ошибка чтения файла: %1").arg(meta.name));
+            complete(tr("Could not read file: %1").arg(meta.name));
             return;
         }
         frames::PayloadHeader header{meta.payloadId, 2, meta.size};
@@ -375,7 +375,7 @@ void OutboundConnection::pump() {
     }
     if (m_state == Completing && !m_closing && m_socket.bytesToWrite() == 0) {
         m_closing = true;
-        emit statusChanged(tr("Завершение передачи…"));
+        emit statusChanged(tr("Finishing transfer…"));
         // Queued bytes reaching the kernel does not mean that Android has
         // committed the attachment. The receiver owns completion; continue
         // reading its result (including Cancel) until it disconnects.
@@ -385,7 +385,7 @@ void OutboundConnection::pump() {
 void OutboundConnection::cancel() {
     if (m_state >= PairedEncryption && m_state != Done)
         sendSharing(wrap(6, 7, {}));
-    complete(tr("Передача отменена"));
+    complete(tr("Transfer cancelled"));
 }
 void OutboundConnection::complete(const QString &error) {
     if (!error.isEmpty())
