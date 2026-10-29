@@ -18,7 +18,8 @@ Quick Share over your local network; no companion Android app is needed.
 ## Features
 
 - Plasma tray icon, native KDE notifications and a Qt Widgets interface.
-- Receive files into your Downloads folder; accept or reject from a notification.
+  The application icon follows the Plasma accent colour.
+- Receive files into your Downloads folder or a folder you choose; accept or reject from a notification.
 - Optional automatic reception from explicitly trusted devices.
 - Send files from Dolphin's context menu, the application or the tray.
 - Send text with a QR code, including an optional action in Plasma's clipboard history.
@@ -127,6 +128,8 @@ The **Settings** tab has two independent options, all enabled by default:
 
 - **Copy received text to the clipboard**.
 - **Save received text as a file**.
+- **Copy received photos to the clipboard** (off by default).
+- **Open received links in the browser**, http and https only (off by default).
 
 Click **Apply** to save your choices. Text includes Quick Share text messages
 (such as sharing copied text on Android) and valid UTF-8 `.txt` attachments up to

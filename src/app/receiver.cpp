@@ -15,12 +15,14 @@
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHostInfo>
+#include <QImageReader>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QLocale>
 #include <QMenu>
 #include <QMimeData>
+#include <QMimeDatabase>
 #include <QNetworkInterface>
 #include <QProgressBar>
 #include <QPushButton>
@@ -63,7 +65,7 @@ QString networkSignature()
 } // namespace
 
 Receiver::Receiver(const QString &destinationOverride)
-    : m_destination(destinationOverride.isEmpty() ? QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) : destinationOverride)
+    : m_destinationOverride(destinationOverride)
     , m_server(this)
     , m_tray(new KStatusNotifierItem("kquickshare", this))
 {
@@ -111,6 +113,15 @@ Receiver::Receiver(const QString &destinationOverride)
     m_folder->setObjectName("downloadDirectory");
     m_folder->setReadOnly(true);
     folderLayout->addWidget(m_folder);
+    auto *chooseFolder = new QPushButton(QIcon::fromTheme("document-open-folder"), tr("Choose…"));
+    chooseFolder->setObjectName("chooseDownloadDirectory");
+    chooseFolder->setEnabled(m_destinationOverride.isEmpty());
+    folderLayout->addWidget(chooseFolder);
+    connect(chooseFolder, &QPushButton::clicked, this, [this] {
+        const QString dir = QFileDialog::getExistingDirectory(this, tr("Save received files to"), m_folder->text());
+        if (!dir.isEmpty())
+            m_folder->setText(dir);
+    });
     form->addRow(tr("Save to:"), folderRow);
     m_port = new QSpinBox;
     m_port->setObjectName("listenPort");
@@ -123,10 +134,10 @@ Receiver::Receiver(const QString &destinationOverride)
     const QString autostartPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/autostart/org.kde.kquickshare.desktop";
     m_autostart->setChecked(QFileInfo::exists(autostartPath));
     form->addRow(m_autostart);
-    auto option = [this, form](const QString &title, const char *key) {
+    auto option = [this, form](const QString &title, const char *key, bool defaultValue = true) {
         auto *box = new QCheckBox(title);
         box->setObjectName(QString::fromLatin1(key));
-        box->setChecked(m_settings.value(key, true).toBool());
+        box->setChecked(m_settings.value(key, defaultValue).toBool());
         form->addRow(box);
         return box;
     };
@@ -134,6 +145,11 @@ Receiver::Receiver(const QString &destinationOverride)
     m_saveText = option(tr("Save received text as a file"), "saveReceivedText");
     m_saveText->setToolTip(tr(
         "Shared Quick Share text and UTF-8 .txt files up to 5 MiB. Photos are always saved in Downloads. If both text options are disabled, received text is discarded."));
+    m_copyPhotos = option(tr("Copy received photos to the clipboard"), "copyReceivedPhotos", false);
+    m_copyPhotos->setToolTip(tr("The photo is still saved to the download folder. When several photos arrive at once, the last one is copied."));
+    m_openLinks = option(tr("Open received links in the browser"), "openReceivedLinks", false);
+    m_openLinks->setToolTip(
+        tr("Only http and https links are opened, as Android does. Links from untrusted devices still require accepting the transfer first."));
     auto *apply = new QPushButton(QIcon::fromTheme("dialog-ok-apply"), tr("Apply"));
     apply->setObjectName("applySettings");
     form->addRow(apply);
@@ -194,6 +210,10 @@ Receiver::Receiver(const QString &destinationOverride)
         m_settings.setValue("enabled", m_enabled->isChecked());
         m_settings.setValue("copyReceivedText", m_copyText->isChecked());
         m_settings.setValue("saveReceivedText", m_saveText->isChecked());
+        m_settings.setValue("copyReceivedPhotos", m_copyPhotos->isChecked());
+        m_settings.setValue("openReceivedLinks", m_openLinks->isChecked());
+        if (m_destinationOverride.isEmpty())
+            m_settings.setValue("downloadDirectory", m_folder->text());
         if (m_autostart->isChecked()) {
             QDir().mkpath(QFileInfo(autostartPath).absolutePath());
             QSaveFile f(autostartPath);
@@ -216,6 +236,7 @@ Receiver::Receiver(const QString &destinationOverride)
     m_tray->setTitle("KQuickShare");
     m_tray->setCategory(KStatusNotifierItem::Communications);
     m_tray->setIconByName("org.kde.kquickshare-symbolic");
+    m_tray->setAttentionIconByName("org.kde.kquickshare-attention-symbolic");
     m_tray->setStandardActionsEnabled(false);
     auto *menu = new QMenu(this);
     menu->addAction(QIcon::fromTheme("org.kde.kquickshare"), tr("Transfers and settings…"), this, &Receiver::reveal);
@@ -281,7 +302,36 @@ void Receiver::reveal()
 }
 QString Receiver::destination() const
 {
-    return m_destination;
+    if (!m_destinationOverride.isEmpty())
+        return m_destinationOverride;
+    const QString configured = m_settings.value("downloadDirectory").toString();
+    return configured.isEmpty() ? QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) : configured;
+}
+
+// Offers the original file bytes, a decoded image and the file URL, so pasting
+// works in chat apps, image editors and file managers alike.
+bool Receiver::copyPhotoToClipboard(const QString &path)
+{
+    constexpr qint64 kMaxBytes = 64 * 1024 * 1024;
+    constexpr qint64 kMaxPixels = 64 * 1024 * 1024;
+    const QMimeType type = QMimeDatabase().mimeTypeForFile(path);
+    if (!type.name().startsWith(QLatin1String("image/")) || QFileInfo(path).size() > kMaxBytes)
+        return false;
+    QImageReader reader(path);
+    reader.setAutoTransform(true);
+    const QSize size = reader.size();
+    if (!size.isValid() || qint64(size.width()) * size.height() > kMaxPixels)
+        return false;
+    const QImage image = reader.read();
+    QFile file(path);
+    if (image.isNull() || !file.open(QIODevice::ReadOnly))
+        return false;
+    auto *mime = new QMimeData;
+    mime->setImageData(image);
+    mime->setData(type.name(), file.readAll());
+    mime->setUrls({QUrl::fromLocalFile(path)});
+    KSystemClipboard::instance()->setMimeData(mime, QClipboard::Clipboard);
+    return true;
 }
 QString Receiver::trustKey(const TransferRequest &r) const
 {
@@ -473,6 +523,10 @@ void Receiver::finish(InboundConnection *conn, const QStringList &files, const Q
         };
         if (it->text) {
             copy(*it->text);
+            const QUrl link(it->text->trimmed(), QUrl::StrictMode);
+            if (it->request.textType == 2 && m_settings.value("openReceivedLinks", false).toBool() && link.isValid()
+                && (link.scheme() == QLatin1String("https") || link.scheme() == QLatin1String("http")))
+                QDesktopServices::openUrl(link);
             if (saveText) {
                 QDir().mkpath(destination());
                 QTemporaryFile file(
@@ -486,8 +540,13 @@ void Receiver::finish(InboundConnection *conn, const QStringList &files, const Q
                 }
             }
         }
+        const bool copyPhotos = m_settings.value("copyReceivedPhotos", false).toBool();
         for (const auto &path : files) {
             const QFileInfo info(path);
+            if (copyPhotos && copyPhotoToClipboard(path)) {
+                copied = true;
+                continue;
+            }
             if (info.suffix().compare("txt", Qt::CaseInsensitive) == 0 && info.size() <= 5 * 1024 * 1024) {
                 QFile file(path);
                 if (file.open(QIODevice::ReadOnly)) {

@@ -25,7 +25,7 @@
     </screenshot>
   </screenshots>
   <releases>
-    <release version="0.5.0" date="2026-10-30"><description><p>Code-quality release: English source strings, shared protocol code, KDE code style and several reliability fixes.</p></description></release>
+    <release version="0.5.0" date="2026-10-30"><description><p>Optional photo clipboard copying and link opening, a choosable download folder, accent-coloured icons, and many reliability and code-quality fixes.</p></description></release>
     <release version="0.4.0" date="2026-10-24"><description><p>Clipboard reception, cross-distribution installation, native package recipes, and compatibility checks.</p></description></release>
     <release version="0.3.0" date="2026-10-21"/>
   </releases>

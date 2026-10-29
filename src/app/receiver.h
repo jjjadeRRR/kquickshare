@@ -50,8 +50,9 @@ private:
     void startReceiver();
     QString trustKey(const TransferRequest &request) const;
     QString destination() const;
+    bool copyPhotoToClipboard(const QString &path);
     KNotification *notify(const QString &event, const QString &title, const QString &body, bool persistent = false);
-    QString m_destination;
+    QString m_destinationOverride;
     NearbyServer m_server;
     QSettings m_settings;
     KStatusNotifierItem *m_tray;
@@ -63,6 +64,8 @@ private:
     QCheckBox *m_autostart;
     QCheckBox *m_copyText;
     QCheckBox *m_saveText;
+    QCheckBox *m_copyPhotos;
+    QCheckBox *m_openLinks;
     QListWidget *m_trusted;
     QVBoxLayout *m_transfers;
     QLabel *m_empty;

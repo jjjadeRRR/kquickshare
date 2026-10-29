@@ -143,6 +143,7 @@ private slots:
         // Use generic display values in documentation screenshots, never host data.
         receiver.findChild<QLineEdit *>("downloadDirectory")->setText("~/Downloads");
         receiver.findChild<QSpinBox *>("listenPort")->setValue(53318);
+        receiver.findChild<QPushButton *>("chooseDownloadDirectory")->setEnabled(true);
         receiver.grab().save(QString(SOURCE_DIR) + "/build/settings-" + localization::language(languages) + ".png");
     }
     void receivedClipboard_data()
@@ -173,6 +174,7 @@ private slots:
         // Legacy preference must not re-enable image clipboard handling.
         settings.setValue("copyReceivedImages", true);
         settings.setValue("copyReceivedText", kind == "image" ? !copy : copy);
+        settings.setValue("copyReceivedPhotos", kind == "image" && copy);
         settings.setValue("saveReceivedText", save);
         settings.sync();
         auto *initial = new QMimeData;
@@ -233,7 +235,16 @@ private slots:
         QCOMPARE(sender.exitCode(), 0);
         QTRY_COMPARE_WITH_TIMEOUT(completed.count(), 1, 8000);
         QCOMPARE(completed.first().at(2).toString().isEmpty(), kind != "truncated");
-        QCOMPARE(KSystemClipboard::instance()->text(QClipboard::Clipboard), copy && (kind == "text" || kind == "txt") ? text : QString("existing clipboard"));
+        if (kind == "image" && copy) {
+            const QMimeData *clipboard = KSystemClipboard::instance()->mimeData(QClipboard::Clipboard);
+            QVERIFY(clipboard && clipboard->hasImage());
+            QCOMPARE(qvariant_cast<QImage>(clipboard->imageData()).size(), QSize(3, 2));
+            QCOMPARE(clipboard->urls().size(), 1);
+            QVERIFY(clipboard->urls().first().toLocalFile().startsWith(downloads.path()));
+        } else {
+            QCOMPARE(
+                KSystemClipboard::instance()->text(QClipboard::Clipboard), copy && (kind == "text" || kind == "txt") ? text : QString("existing clipboard"));
+        }
         auto files = QDir(downloads.path()).entryList(QDir::Files | QDir::NoDotAndDotDot);
         if (kind == "txt") {
             QVERIFY(files.removeOne("shared.txt"));
@@ -280,6 +291,30 @@ private slots:
                 QCOMPARE(box->isChecked(), i == enabled);
             }
         }
+    }
+    void optionalSettings()
+    {
+        QTemporaryDir downloads;
+        QSettings settings;
+        settings.clear();
+        settings.setValue("listenPort", 0);
+        settings.setValue("downloadDirectory", downloads.path());
+        settings.sync();
+        {
+            Receiver receiver;
+            QCOMPARE(receiver.findChild<QLineEdit *>("downloadDirectory")->text(), downloads.path());
+            QVERIFY(receiver.findChild<QPushButton *>("chooseDownloadDirectory")->isEnabled());
+            // Both actions act on content from the phone; they are opt-in.
+            QVERIFY(!receiver.findChild<QCheckBox *>("copyReceivedPhotos")->isChecked());
+            QVERIFY(!receiver.findChild<QCheckBox *>("openReceivedLinks")->isChecked());
+            receiver.findChild<QCheckBox *>("copyReceivedPhotos")->setChecked(true);
+            receiver.findChild<QCheckBox *>("openReceivedLinks")->setChecked(true);
+            QTest::mouseClick(receiver.findChild<QPushButton *>("applySettings"), Qt::LeftButton);
+        }
+        Receiver receiver;
+        QVERIFY(receiver.findChild<QCheckBox *>("copyReceivedPhotos")->isChecked());
+        QVERIFY(receiver.findChild<QCheckBox *>("openReceivedLinks")->isChecked());
+        QCOMPARE(QSettings().value("downloadDirectory").toString(), downloads.path());
     }
     void configuredListeningPort()
     {
