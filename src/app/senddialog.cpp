@@ -90,8 +90,11 @@ SendDialog::SendDialog(const QStringList &files, const QString &text, QWidget *p
 }
 SendDialog::~SendDialog() {
     m_shuttingDown = true;
-    if (m_connection)
+    if (m_connection) {
+        // The finished handler updates widgets that are being destroyed.
+        disconnect(m_connection, nullptr, this, nullptr);
         m_connection->cancel();
+    }
 }
 void SendDialog::reject() {
     m_shuttingDown = true;

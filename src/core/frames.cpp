@@ -2,6 +2,8 @@
 
 #include "crypto.h"
 
+#include <QtEndian>
+
 namespace frames {
 
 namespace {
@@ -19,6 +21,30 @@ QByteArray offlineV1(pb::Writer &v1)
     return pb::Writer().varint(1, 1).bytes(2, v1.data()).data();
 }
 } // namespace
+
+// ---------------- Stream framing ----------------
+
+QByteArray lengthPrefixed(const QByteArray &frame)
+{
+    QByteArray out(4, '\0');
+    qToBigEndian(quint32(frame.size()), out.data());
+    out.append(frame);
+    return out;
+}
+
+FrameRead takeFrame(QByteArray &buffer, QByteArray &frame)
+{
+    if (buffer.size() < 4)
+        return FrameRead::Incomplete;
+    const quint32 length = qFromBigEndian<quint32>(buffer.constData());
+    if (length == 0 || length > kMaxFrameLength)
+        return FrameRead::Invalid;
+    if (buffer.size() < qsizetype(4 + length))
+        return FrameRead::Incomplete;
+    frame = buffer.mid(4, qsizetype(length));
+    buffer.remove(0, qsizetype(4 + length));
+    return FrameRead::Frame;
+}
 
 // ---------------- OfflineFrame ----------------
 
@@ -185,6 +211,22 @@ QVector<QByteArray> buildBytesPayloadTransfer(qint64 id, const QByteArray &body)
     return out;
 }
 
+BytesPayloadAssembler::Result BytesPayloadAssembler::add(const PayloadHeader &header, const PayloadChunk &chunk, QByteArray &payload)
+{
+    if (header.totalSize < 0 || header.totalSize > kMaxFrameLength || (!m_buffers.contains(header.id) && m_buffers.size() >= m_maxPayloads))
+        return Result::TooLarge;
+    QByteArray &buffer = m_buffers[header.id];
+    if (chunk.offset != buffer.size() || chunk.body.size() > header.totalSize - buffer.size()) {
+        m_buffers.remove(header.id);
+        return Result::Invalid;
+    }
+    buffer.append(chunk.body);
+    if ((chunk.flags & 1) == 0) // LAST_CHUNK not yet reached
+        return Result::Pending;
+    payload = m_buffers.take(header.id);
+    return payload.size() == header.totalSize ? Result::Complete : Result::Invalid;
+}
+
 // ---------------- UKEY2 ----------------
 
 bool parseUkey2Message(const QByteArray &data, Ukey2Message &out)
@@ -272,6 +314,45 @@ QByteArray buildUkey2Alert(int alertType)
     msg.varint(1, int(Ukey2Type::Alert))
         .bytes(2, alert.data());
     return msg.data();
+}
+
+bool deriveUkey2Keys(EVP_PKEY *ourKey,
+                     const QByteArray &peerX,
+                     const QByteArray &peerY,
+                     const QByteArray &clientInit,
+                     const QByteArray &serverInit,
+                     Ukey2Keys &out)
+{
+    // Key schedule: docs/protocol.md
+    const QByteArray shared = crypto::ecdhSharedX(ourKey, peerX, peerY);
+    if (shared.size() != 32)
+        return false;
+    const QByteArray dhs = crypto::sha256(shared);
+    const QByteArray info = clientInit + serverInit;
+    out.authString = crypto::hkdfSha256(dhs, "UKEY2 v1 auth", info, 32);
+    const QByteArray nextSecret = crypto::hkdfSha256(dhs, "UKEY2 v1 next", info, 32);
+
+    const QByteArray d2dSalt = crypto::sha256("D2D");
+    const QByteArray d2dClient = crypto::hkdfSha256(nextSecret, d2dSalt, "client", 32);
+    const QByteArray d2dServer = crypto::hkdfSha256(nextSecret, d2dSalt, "server", 32);
+    const QByteArray secureMessageSalt = crypto::sha256("SecureMessage");
+    out.clientEncrypt = crypto::hkdfSha256(d2dClient, secureMessageSalt, "ENC:2", 32);
+    out.clientHmac = crypto::hkdfSha256(d2dClient, secureMessageSalt, "SIG:1", 32);
+    out.serverEncrypt = crypto::hkdfSha256(d2dServer, secureMessageSalt, "ENC:2", 32);
+    out.serverHmac = crypto::hkdfSha256(d2dServer, secureMessageSalt, "SIG:1", 32);
+    return true;
+}
+
+QString pinCode(const QByteArray &authString)
+{
+    int hash = 0;
+    int multiplier = 1;
+    for (const char c : authString) {
+        const int byte = int(qint8(c)); // signed interpretation, per spec
+        hash = (hash + byte * multiplier) % 9973;
+        multiplier = (multiplier * 31) % 9973;
+    }
+    return QString::number(qAbs(hash)).rightJustified(4, QLatin1Char('0'));
 }
 
 // ---------------- SecureMessage ----------------
@@ -443,6 +524,13 @@ QByteArray buildSharingResponseFrame(int status)
     pb::Writer v1;
     v1.varint(1, int(SharingFrameType::Response))
         .bytes(3, resp.data());
+    return sharingV1(v1);
+}
+
+QByteArray buildCancelFrame()
+{
+    pb::Writer v1; // CANCEL carries no body
+    v1.varint(1, int(SharingFrameType::Cancel));
     return sharingV1(v1);
 }
 

@@ -8,23 +8,21 @@
 #include <limits>
 
 namespace {
-qint64 payloadId() { return qint64(QRandomGenerator::global()->generate64() & 0x7fffffffffffffffULL); }
+qint64 payloadId() { return qint64(QRandomGenerator::global()->generate64() & std::numeric_limits<qint64>::max()); }
+// Preview shown on the phone; never split a surrogate pair.
+QString textTitle(const QString &text) {
+    qsizetype end = qMin<qsizetype>(text.size(), 80);
+    if (end < text.size() && end > 0 && text.at(end - 1).isHighSurrogate())
+        --end;
+    return text.left(end);
+}
 QByteArray wrap(int type, int field, const QByteArray &data) {
     return pb::Writer().varint(1, 1).bytes(2, pb::Writer().varint(1, type).bytes(field, data).data()).data();
 }
-QString pin(const QByteArray &key) {
-    int hash = 0, multiplier = 1;
-    for (char c : key) {
-        hash = (hash + int(qint8(c)) * multiplier) % 9973;
-        multiplier = multiplier * 31 % 9973;
-    }
-    return QString::number(qAbs(hash)).rightJustified(4, '0');
-}
-bool getFields(const QByteArray &data, QVector<pb::Field> &fields) { return pb::parseMessage(data, fields); }
 } // namespace
 
 OutboundConnection::OutboundConnection(QObject *parent) : QObject(parent) {
-    m_socket.setReadBufferSize(5 * 1024 * 1024 + 4);
+    m_socket.setReadBufferSize(frames::kMaxFrameLength + 4);
     m_timeout.setSingleShot(true);
     connect(&m_timeout, &QTimer::timeout, this,
             [this] { complete(tr("The phone did not respond in time")); });
@@ -78,7 +76,7 @@ bool OutboundConnection::setFiles(const QStringList &paths, QString &error) {
     return true;
 }
 bool OutboundConnection::setText(const QString &text, QString &error) {
-    if (text.isEmpty() || text.toUtf8().size() > 5 * 1024 * 1024 || m_state != Idle || !m_files.isEmpty()) {
+    if (text.isEmpty() || text.toUtf8().size() > frames::kMaxFrameLength || m_state != Idle || !m_files.isEmpty()) {
         error = tr("Text must be at most 5 MiB");
         return false;
     }
@@ -140,17 +138,10 @@ void OutboundConnection::start(const QHostAddress &address, quint16 port, const 
     m_socket.connectToHost(address, port);
 }
 void OutboundConnection::sendRaw(const QByteArray &data) {
-    QByteArray packet(4, '\0');
-    quint32 n = quint32(data.size());
-    packet[0] = char(n >> 24);
-    packet[1] = char(n >> 16);
-    packet[2] = char(n >> 8);
-    packet[3] = char(n);
-    packet += data;
-    m_socket.write(packet);
+    m_socket.write(frames::lengthPrefixed(data));
 }
 void OutboundConnection::sendSecure(const QByteArray &data) {
-    sendRaw(frames::encryptOfflineFrame(data, ++m_tx, m_enc, m_mac));
+    sendRaw(frames::encryptOfflineFrame(data, ++m_tx, m_encryptKey, m_sendHmacKey));
 }
 void OutboundConnection::sendSharing(const QByteArray &data) {
     for (const auto &frame : frames::buildBytesPayloadTransfer(payloadId(), data))
@@ -161,20 +152,20 @@ void OutboundConnection::read() {
         return;
     m_timeout.start(m_state == Consent ? 120000 : 30000);
     m_buffer += m_socket.readAll();
-    while (m_buffer.size() >= 4) {
-        const auto *p = reinterpret_cast<const uchar *>(m_buffer.constData());
-        const quint32 n = quint32(p[0]) << 24 | quint32(p[1]) << 16 | quint32(p[2]) << 8 | quint32(p[3]);
-        if (n == 0 || n > 5 * 1024 * 1024) {
+    QByteArray frame;
+    for (;;) {
+        switch (frames::takeFrame(m_buffer, frame)) {
+        case frames::FrameRead::Incomplete:
+            return;
+        case frames::FrameRead::Invalid:
             complete(tr("Invalid frame size"));
             return;
+        case frames::FrameRead::Frame:
+            process(frame);
+            if (m_state == Done)
+                return;
+            break;
         }
-        if (m_buffer.size() < n + 4)
-            return;
-        const QByteArray data = m_buffer.mid(4, n);
-        m_buffer.remove(0, n + 4);
-        process(data);
-        if (m_state == Done)
-            return;
     }
 }
 bool OutboundConnection::derive(const QByteArray &raw) {
@@ -184,29 +175,23 @@ bool OutboundConnection::derive(const QByteArray &raw) {
     QVector<pb::Field> f;
     uint64_t version = 0, cipher = 0;
     QByteArray random, pub;
-    if (!getFields(message.data, f) || !pb::fieldVarint(f, 1, version) || version != 1 ||
+    if (!pb::parseMessage(message.data, f) || !pb::fieldVarint(f, 1, version) || version != 1 ||
         !pb::fieldVarint(f, 3, cipher) || cipher != 100 || !pb::fieldBytes(f, 2, random) ||
         random.size() != 32 || !pb::fieldBytes(f, 4, pub))
         return false;
     QByteArray x, y;
     if (!frames::parseUkey2ClientFinished(pb::Writer().bytes(1, pub).data(), x, y))
         return false;
-    const QByteArray shared = crypto::ecdhSharedX(m_key.get(), x, y);
-    if (shared.size() != 32)
+    frames::Ukey2Keys keys;
+    if (!frames::deriveUkey2Keys(m_key.get(), x, y, m_init, raw, keys))
         return false;
-    const QByteArray dhs = crypto::sha256(shared), info = m_init + raw;
-    const QByteArray auth = crypto::hkdfSha256(dhs, "UKEY2 v1 auth", info, 32);
-    const QByteArray next = crypto::hkdfSha256(dhs, "UKEY2 v1 next", info, 32);
-    const auto salt = crypto::sha256("D2D");
-    const auto client = crypto::hkdfSha256(next, salt, "client", 32),
-               server = crypto::hkdfSha256(next, salt, "server", 32);
-    const auto sm = crypto::sha256("SecureMessage");
-    m_enc = crypto::hkdfSha256(client, sm, "ENC:2", 32);
-    m_mac = crypto::hkdfSha256(client, sm, "SIG:1", 32);
-    m_dec = crypto::hkdfSha256(server, sm, "ENC:2", 32);
-    m_verify = crypto::hkdfSha256(server, sm, "SIG:1", 32);
-    m_auth = auth;
-    emit verificationCode(pin(auth));
+    // We are the UKEY2 client: encrypt with our keys, decrypt with the server's.
+    m_encryptKey = keys.clientEncrypt;
+    m_sendHmacKey = keys.clientHmac;
+    m_decryptKey = keys.serverEncrypt;
+    m_recvHmacKey = keys.serverHmac;
+    m_auth = keys.authString;
+    emit verificationCode(frames::pinCode(m_auth));
     return true;
 }
 void OutboundConnection::process(const QByteArray &data) {
@@ -234,7 +219,7 @@ void OutboundConnection::process(const QByteArray &data) {
         return;
     }
     QByteArray plain;
-    if (!frames::decryptSecureMessage(data, m_dec, m_verify, ++m_rx, plain) ||
+    if (!frames::decryptSecureMessage(data, m_decryptKey, m_recvHmacKey, ++m_rx, plain) ||
         !frames::parseOfflineFrame(plain, frame)) {
         complete(tr("Encrypted message verification failed"));
         return;
@@ -251,27 +236,19 @@ void OutboundConnection::process(const QByteArray &data) {
     if (frame.type != frames::OfflineFrameType::PayloadTransfer || !frame.hasPayloadChunk ||
         frame.payloadHeader.type != 1)
         return;
-    const auto &h = frame.payloadHeader;
-    const auto &c = frame.payloadChunk;
-    if (h.totalSize < 0 || h.totalSize > 5 * 1024 * 1024 ||
-        (!m_bytes.contains(h.id) && m_bytes.size() >= 4)) {
+    QByteArray payload;
+    switch (m_bytes.add(frame.payloadHeader, frame.payloadChunk, payload)) {
+    case frames::BytesPayloadAssembler::Result::Pending:
+        return;
+    case frames::BytesPayloadAssembler::Result::TooLarge:
         complete(tr("Invalid message size"));
         return;
-    }
-    auto &buffer = m_bytes[h.id];
-    if (c.offset != buffer.size() || c.body.size() > h.totalSize - buffer.size()) {
+    case frames::BytesPayloadAssembler::Result::Invalid:
         complete(tr("Invalid message from the phone"));
         return;
-    }
-    buffer += c.body;
-    if (c.flags & 1) {
-        if (buffer.size() != h.totalSize) {
-            complete(tr("Incomplete message from the phone"));
-            return;
-        }
-        const QByteArray payload = buffer;
-        m_bytes.remove(h.id);
+    case frames::BytesPayloadAssembler::Result::Complete:
         sharing(payload);
+        return;
     }
 }
 void OutboundConnection::sharing(const QByteArray &data) {
@@ -292,7 +269,7 @@ void OutboundConnection::sharing(const QByteArray &data) {
         if (m_isText)
             intro = pb::Writer()
                         .bytes(2, pb::Writer()
-                                      .string(2, QString::fromUtf8(m_text).left(80))
+                                      .string(2, textTitle(QString::fromUtf8(m_text)))
                                       .varint(3, 1)
                                       .svarint64(4, m_textId)
                                       .svarint64(5, m_text.size())
@@ -383,15 +360,17 @@ void OutboundConnection::pump() {
     }
 }
 void OutboundConnection::cancel() {
-    if (m_state >= PairedEncryption && m_state != Done)
-        sendSharing(wrap(6, 7, {}));
+    if (m_state >= PairedEncryption && m_state != Done) {
+        sendSharing(frames::buildCancelFrame());
+        m_socket.flush(); // complete() aborts the socket and would drop the queued frame
+    }
     complete(tr("Transfer cancelled"));
 }
 void OutboundConnection::complete(const QString &error) {
-    if (!error.isEmpty())
-        qWarning("Quick Share outbound error in state %d: %s", int(m_state), qPrintable(error));
     if (m_state == Done)
         return;
+    if (!error.isEmpty())
+        qWarning("Quick Share outbound error in state %d: %s", int(m_state), qPrintable(error));
     m_state = Done;
     m_timeout.stop();
     m_keepAlive.stop();

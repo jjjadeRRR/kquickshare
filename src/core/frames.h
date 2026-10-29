@@ -2,12 +2,28 @@
 // Field numbers follow Google's protos (see docs/protocol.md).
 #pragma once
 
+#include "crypto.h"
 #include "endpointinfo.h"
 #include "protobuf.h"
 
+#include <QHash>
 #include <QVector>
 
 namespace frames {
+
+// ---------------- Stream framing ----------------
+
+// Every frame on the TCP stream carries a 4-byte big-endian length prefix.
+constexpr qsizetype kMaxFrameLength = 5 * 1024 * 1024;
+
+QByteArray lengthPrefixed(const QByteArray &frame);
+
+enum class FrameRead {
+    Incomplete, // wait for more data
+    Frame, // one frame was removed from the buffer
+    Invalid, // zero or oversized length
+};
+FrameRead takeFrame(QByteArray &buffer, QByteArray &frame);
 
 // ---------------- OfflineFrame (location.nearby.connections) ----------------
 
@@ -59,6 +75,28 @@ QByteArray buildDisconnectionOfflineFrame();
 // Two-frames-per-message payload, mirroring Android: data frame + empty LAST_CHUNK frame.
 QVector<QByteArray> buildBytesPayloadTransfer(qint64 id, const QByteArray &body);
 
+// Reassembles BYTES payloads (sharing frames and text) from their chunks.
+class BytesPayloadAssembler
+{
+public:
+    enum class Result {
+        Pending,
+        Complete,
+        TooLarge, // declared size or number of concurrent payloads exceeded
+        Invalid, // wrong offset, overflow or truncated payload
+    };
+    explicit BytesPayloadAssembler(int maxConcurrentPayloads)
+        : m_maxPayloads(maxConcurrentPayloads)
+    {
+    }
+    // On Complete, payload holds the whole body.
+    Result add(const PayloadHeader &header, const PayloadChunk &chunk, QByteArray &payload);
+
+private:
+    QHash<qint64, QByteArray> m_buffers;
+    int m_maxPayloads;
+};
+
 // ---------------- UKEY2 (securegcm) ----------------
 
 enum class Ukey2Type {
@@ -87,6 +125,25 @@ bool parseUkey2ClientFinished(const QByteArray &data, QByteArray &peerX, QByteAr
 // Full serialized Ukey2Message of type SERVER_INIT.
 QByteArray buildUkey2ServerInit(const QByteArray &signedX, const QByteArray &signedY);
 QByteArray buildUkey2Alert(int alertType);
+
+// Keys derived from a completed UKEY2 handshake. "client" is the side that
+// sent CLIENT_INIT (the sender), "server" the side that answered (the receiver).
+struct Ukey2Keys {
+    QByteArray authString; // source of the 4-digit PIN code
+    QByteArray clientEncrypt, clientHmac;
+    QByteArray serverEncrypt, serverHmac;
+};
+
+// clientInit/serverInit are the complete serialized Ukey2Messages.
+bool deriveUkey2Keys(EVP_PKEY *ourKey,
+                     const QByteArray &peerX,
+                     const QByteArray &peerY,
+                     const QByteArray &clientInit,
+                     const QByteArray &serverInit,
+                     Ukey2Keys &out);
+
+// Four-digit verification code shown on both devices.
+QString pinCode(const QByteArray &authString);
 
 // ---------------- SecureMessage (securemessage/securegcm) ----------------
 
@@ -137,5 +194,6 @@ QByteArray buildPairedKeyEncryptionFrame(const QByteArray &qrSignature = {});
 QByteArray buildPairedKeyResultFrame(); // status = UNABLE
 // status: 1 = ACCEPT, 2 = REJECT, 3 = NOT_ENOUGH_SPACE, 4 = UNSUPPORTED_ATTACHMENT_TYPE, 5 = TIMED_OUT
 QByteArray buildSharingResponseFrame(int status);
+QByteArray buildCancelFrame();
 
 } // namespace frames

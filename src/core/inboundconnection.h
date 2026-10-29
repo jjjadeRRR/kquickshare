@@ -117,7 +117,7 @@ private:
     bool m_encryptionDone = false;
 
     // Transfer state
-    QHash<qint64, QByteArray> m_bytesPayloadBuffers;
+    frames::BytesPayloadAssembler m_bytesPayloads{16};
     QHash<qint64, ReceivingFile> m_files;
     qint64 m_textPayloadId = 0;
     TransferRequest m_pendingRequest;

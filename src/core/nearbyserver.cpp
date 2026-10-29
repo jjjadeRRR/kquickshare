@@ -57,15 +57,19 @@ bool NearbyServer::start(const QString &deviceName, DeviceType deviceType, quint
     connect(m_tcpServer, &QTcpServer::newConnection, this, &NearbyServer::onNewConnection);
 
     // Service instance name: base64url(0x23 | endpointId | 0xFC 0x9F 0x5E | 0x00 0x00)
+    const QByteArray endpointId = generateEndpointId();
     QByteArray nameBytes;
     nameBytes.append(char(0x23));
-    nameBytes.append(generateEndpointId());
+    nameBytes.append(endpointId);
     nameBytes.append(char(0xFC)).append(char(0x9F)).append(char(0x5E));
     nameBytes.append(char(0x00)).append(char(0x00));
     const QByteArray instanceName = base64UrlEncode(nameBytes);
 
     const QByteArray endpointInfo = base64UrlEncode(EndpointInfo::serialize(deviceName, deviceType));
-    const QString hostName = sanitizeHostLabel(QHostInfo::localHostName()) + QStringLiteral(".local");
+    // Use our own host label: answering for the machine's "<hostname>.local"
+    // with cache-flush set conflicts with avahi-daemon on multi-homed hosts.
+    const QString hostName = sanitizeHostLabel(QHostInfo::localHostName()) + QStringLiteral("-quickshare-")
+        + QString::fromLatin1(endpointId).toLower() + QStringLiteral(".local");
 
     m_mdns = new MdnsResponder(QStringLiteral("_FC9F5ED42C8A._tcp.local"),
                                QString::fromLatin1(instanceName), hostName, port, endpointInfo, this);

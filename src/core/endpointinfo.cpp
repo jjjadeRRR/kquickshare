@@ -37,7 +37,7 @@ bool EndpointInfo::parse(const QByteArray &data, EndpointInfo &out)
         offset += 1 + nameLen;
     }
     // TLV records (type 1 = QR code data)
-    while (data.size() - offset > 2) {
+    while (data.size() - offset >= 2) {
         const uint8_t type = uint8_t(data[offset]);
         const int len = uint8_t(data[offset + 1]);
         offset += 2;

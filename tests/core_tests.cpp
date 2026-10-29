@@ -120,6 +120,66 @@ class CoreTests : public QObject {
         packet[packet.size() - 1] ^= 1;
         QVERIFY(!frames::decryptSecureMessage(packet, enc, mac, 1, out));
     }
+    void streamFraming() {
+        QByteArray buffer = frames::lengthPrefixed("abc") + frames::lengthPrefixed("de").left(5);
+        QByteArray frame;
+        QCOMPARE(frames::takeFrame(buffer, frame), frames::FrameRead::Frame);
+        QCOMPARE(frame, QByteArray("abc"));
+        QCOMPARE(frames::takeFrame(buffer, frame), frames::FrameRead::Incomplete);
+        buffer += 'e';
+        QCOMPARE(frames::takeFrame(buffer, frame), frames::FrameRead::Frame);
+        QCOMPARE(frame, QByteArray("de"));
+        QVERIFY(buffer.isEmpty());
+        buffer = QByteArray::fromHex("00000000");
+        QCOMPARE(frames::takeFrame(buffer, frame), frames::FrameRead::Invalid);
+        buffer = QByteArray::fromHex("00500001");
+        QCOMPARE(frames::takeFrame(buffer, frame), frames::FrameRead::Invalid);
+    }
+    void bytesAssembler() {
+        using Result = frames::BytesPayloadAssembler::Result;
+        frames::BytesPayloadAssembler assembler(2);
+        const frames::PayloadHeader header{7, 1, 5};
+        QByteArray payload;
+        QCOMPARE(assembler.add(header, {0, 0, "abc", true}, payload), Result::Pending);
+        QCOMPARE(assembler.add(header, {0, 3, "de", true}, payload), Result::Pending);
+        QCOMPARE(assembler.add(header, {1, 5, {}, false}, payload), Result::Complete);
+        QCOMPARE(payload, QByteArray("abcde"));
+        QCOMPARE(assembler.add(header, {0, 1, "x", true}, payload), Result::Invalid); // wrong offset
+        QCOMPARE(assembler.add(header, {1, 0, "abcdef", true}, payload), Result::Invalid); // overflow
+        QCOMPARE(assembler.add(header, {1, 0, "ab", true}, payload), Result::Invalid); // truncated
+        QCOMPARE(assembler.add({1, 1, frames::kMaxFrameLength + 1}, {}, payload), Result::TooLarge);
+        QCOMPARE(assembler.add({1, 1, 1}, {}, payload), Result::Pending);
+        QCOMPARE(assembler.add({2, 1, 1}, {}, payload), Result::Pending);
+        QCOMPARE(assembler.add({3, 1, 1}, {}, payload), Result::TooLarge); // concurrency limit
+    }
+    void ukey2Agreement() {
+        auto client = crypto::generateP256(), server = crypto::generateP256();
+        QByteArray cx, cy, sx, sy;
+        QVERIFY(crypto::p256PublicXY(client.get(), cx, cy));
+        QVERIFY(crypto::p256PublicXY(server.get(), sx, sy));
+        frames::Ukey2Keys a, b;
+        using crypto::toSignedBytes; // coordinates travel as protobuf signed bytes
+        QVERIFY(frames::deriveUkey2Keys(client.get(), toSignedBytes(sx), toSignedBytes(sy), "init", "reply", a));
+        QVERIFY(frames::deriveUkey2Keys(server.get(), toSignedBytes(cx), toSignedBytes(cy), "init", "reply", b));
+        QCOMPARE(a.authString, b.authString);
+        QCOMPARE(a.clientEncrypt, b.clientEncrypt);
+        QCOMPARE(a.serverHmac, b.serverHmac);
+        QVERIFY(a.clientEncrypt != a.serverEncrypt);
+        QCOMPARE(frames::pinCode(a.authString).size(), 4);
+        QCOMPARE(frames::pinCode(QByteArray()), QString("0000"));
+    }
+    void cancelFrame() {
+        frames::SharingFrame frame;
+        QVERIFY(frames::parseSharingFrame(frames::buildCancelFrame(), frame));
+        QCOMPARE(frame.type, frames::SharingFrameType::Cancel);
+    }
+    void endpointEmptyTrailingRecord() {
+        QByteArray data = EndpointInfo::serialize("Phone", DeviceType::Phone);
+        data += QByteArray::fromHex("0100"); // QR record with an empty value
+        EndpointInfo info;
+        QVERIFY(EndpointInfo::parse(data + QByteArray::fromHex("0102abcd"), info));
+        QCOMPARE(info.qrCodeData, QByteArray::fromHex("abcd"));
+    }
 };
 QTEST_GUILESS_MAIN(CoreTests)
 #include "core_tests.moc"

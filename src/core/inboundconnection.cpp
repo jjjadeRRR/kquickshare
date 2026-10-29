@@ -1,6 +1,5 @@
 #include "inboundconnection.h"
 
-#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -13,20 +12,8 @@
 #include <QTimer>
 
 namespace {
-constexpr qsizetype kMaxFrameLength = 5 * 1024 * 1024;
+using frames::kMaxFrameLength;
 constexpr int kConsentTimeoutMs = 120'000;
-
-QString pinCodeFromAuthKey(const QByteArray &key)
-{
-    int hash = 0;
-    int multiplier = 1;
-    for (const char c : key) {
-        const int byte = int(int8_t(c)); // signed interpretation, per spec
-        hash = (hash + byte * multiplier) % 9973;
-        multiplier = (multiplier * 31) % 9973;
-    }
-    return QString::number(std::abs(hash)).rightJustified(4, QLatin1Char('0'));
-}
 
 QString uniqueDestination(const QString &dir, const QString &fileName)
 {
@@ -88,6 +75,8 @@ InboundConnection::InboundConnection(QTcpSocket *socket, QObject *parent)
 
 InboundConnection::~InboundConnection()
 {
+    // Closing emits disconnected(); its handler must not run on a half-destroyed object.
+    disconnect(m_socket, nullptr, this, nullptr);
     cleanupFiles(true);
     m_socket->close();
 }
@@ -100,20 +89,20 @@ void InboundConnection::onReadyRead()
     }
     m_idleTimer->start();
     m_readBuffer.append(m_socket->readAll());
-    while (m_readBuffer.size() >= 4) {
-        const auto *p = reinterpret_cast<const uchar *>(m_readBuffer.constData());
-        const quint32 frameLength = quint32(p[0]) << 24 | quint32(p[1]) << 16 | quint32(p[2]) << 8 | quint32(p[3]);
-        if (frameLength == 0 || frameLength > kMaxFrameLength) {
+    QByteArray frame;
+    for (;;) {
+        switch (frames::takeFrame(m_readBuffer, frame)) {
+        case frames::FrameRead::Incomplete:
+            return;
+        case frames::FrameRead::Invalid:
             finishWithError(tr("Frame is too large"));
             return;
+        case frames::FrameRead::Frame:
+            processFrame(frame);
+            if (m_state == State::Done)
+                return;
+            break;
         }
-        if (m_readBuffer.size() < qsizetype(4 + frameLength))
-            return; // wait for more data
-        const QByteArray frame = m_readBuffer.mid(4, qsizetype(frameLength));
-        m_readBuffer.remove(0, qsizetype(4 + frameLength));
-        processFrame(frame);
-        if (m_state == State::Done)
-            return;
     }
 }
 
@@ -226,27 +215,17 @@ void InboundConnection::processUkey2ClientFinish(const QByteArray &frameData)
         return;
     }
 
-    // Key derivation (docs/protocol.md)
-    const QByteArray shared = crypto::ecdhSharedX(m_keyPair.get(), peerX, peerY);
-    if (shared.size() != 32) {
+    frames::Ukey2Keys keys;
+    if (!frames::deriveUkey2Keys(m_keyPair.get(), peerX, peerY, m_clientInitRaw, m_serverInitRaw, keys)) {
         finishWithError(tr("UKEY2: invalid device key"));
         return;
     }
-    const QByteArray dhs = crypto::sha256(shared);
-    const QByteArray ukeyInfo = m_clientInitRaw + m_serverInitRaw;
-    const QByteArray authString = crypto::hkdfSha256(dhs, "UKEY2 v1 auth", ukeyInfo, 32);
-    const QByteArray nextSecret = crypto::hkdfSha256(dhs, "UKEY2 v1 next", ukeyInfo, 32);
-    m_pinCode = pinCodeFromAuthKey(authString);
-
-    const QByteArray d2dSalt = QByteArray::fromHex(
-        "82AA55A0D397F88346CA1CEE8D3909B95F13FA7DEB1D4AB38376B8256DA85510");
-    const QByteArray d2dClientKey = crypto::hkdfSha256(nextSecret, d2dSalt, "client", 32);
-    const QByteArray d2dServerKey = crypto::hkdfSha256(nextSecret, d2dSalt, "server", 32);
-    const QByteArray smsgSalt = crypto::sha256("SecureMessage");
-    m_decryptKey = crypto::hkdfSha256(d2dClientKey, smsgSalt, "ENC:2", 32);
-    m_recvHmacKey = crypto::hkdfSha256(d2dClientKey, smsgSalt, "SIG:1", 32);
-    m_encryptKey = crypto::hkdfSha256(d2dServerKey, smsgSalt, "ENC:2", 32);
-    m_sendHmacKey = crypto::hkdfSha256(d2dServerKey, smsgSalt, "SIG:1", 32);
+    m_pinCode = frames::pinCode(keys.authString);
+    // We are the UKEY2 server: decrypt with the client's keys, encrypt with ours.
+    m_decryptKey = keys.clientEncrypt;
+    m_recvHmacKey = keys.clientHmac;
+    m_encryptKey = keys.serverEncrypt;
+    m_sendHmacKey = keys.serverHmac;
 
     m_state = State::ReceivedUkeyClientFinish;
 }
@@ -304,30 +283,19 @@ void InboundConnection::processPayloadTransfer(const frames::OfflineFrame &frame
         return;
 
     if (header.type == 1) { // BYTES
-        if (header.totalSize < 0 || header.totalSize > kMaxFrameLength
-            || (!m_bytesPayloadBuffers.contains(header.id) && m_bytesPayloadBuffers.size() >= 16)) {
+        QByteArray payload;
+        switch (m_bytesPayloads.add(header, chunk, payload)) {
+        case frames::BytesPayloadAssembler::Result::Pending:
+            return;
+        case frames::BytesPayloadAssembler::Result::TooLarge:
             finishWithError(tr("BYTES payload is too large"));
             return;
-        }
-        QByteArray &buffer = m_bytesPayloadBuffers[header.id];
-        if (chunk.offset != buffer.size()) {
-            finishWithError(tr("Invalid BYTES payload offset"));
+        case frames::BytesPayloadAssembler::Result::Invalid:
+            finishWithError(tr("Invalid BYTES payload"));
             return;
+        case frames::BytesPayloadAssembler::Result::Complete:
+            break;
         }
-        if (chunk.body.size() > header.totalSize - buffer.size()) {
-            finishWithError(tr("BYTES payload exceeds its declared size"));
-            return;
-        }
-        if (chunk.hasBody)
-            buffer.append(chunk.body);
-        if ((chunk.flags & 1) == 0)
-            return;
-        if (buffer.size() != header.totalSize) {
-            finishWithError(tr("Incomplete BYTES payload"));
-            return;
-        }
-        const QByteArray payload = buffer;
-        m_bytesPayloadBuffers.remove(header.id);
         if (header.id == m_textPayloadId && m_state == State::ReceivingFiles) {
             if (payload.size() != m_pendingRequest.totalBytes) {
                 finishWithError(tr("Invalid text size"));
@@ -557,14 +525,7 @@ void InboundConnection::cancelTransfer()
 
 void InboundConnection::sendRawFrame(const QByteArray &frame)
 {
-    QByteArray out(4, '\0');
-    const quint32 len = quint32(frame.size());
-    out[0] = char(len >> 24);
-    out[1] = char(len >> 16);
-    out[2] = char(len >> 8);
-    out[3] = char(len);
-    out.append(frame);
-    m_socket->write(out);
+    m_socket->write(frames::lengthPrefixed(frame));
 }
 
 void InboundConnection::sendEncryptedOfflineFrame(const QByteArray &offlineFrame)
@@ -575,7 +536,7 @@ void InboundConnection::sendEncryptedOfflineFrame(const QByteArray &offlineFrame
 
 void InboundConnection::sendSharingFrame(const QByteArray &sharingFrame)
 {
-    qint64 id = qint64(quint64(QDateTime::currentMSecsSinceEpoch()) << 32 | quint32(QRandomGenerator::global()->generate()));
+    const qint64 id = qint64(QRandomGenerator::global()->generate64() & std::numeric_limits<qint64>::max());
     for (const QByteArray &transferFrame : frames::buildBytesPayloadTransfer(id, sharingFrame))
         sendEncryptedOfflineFrame(transferFrame);
 }

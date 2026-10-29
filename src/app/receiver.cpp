@@ -57,7 +57,8 @@ QString networkSignature() {
 } // namespace
 
 Receiver::Receiver(const QString &destinationOverride)
-    : m_destination(destinationOverride.isEmpty() ? QDir::homePath() + "/Downloads" : destinationOverride),
+    : m_destination(destinationOverride.isEmpty() ? QStandardPaths::writableLocation(QStandardPaths::DownloadLocation)
+                                                  : destinationOverride),
       m_server(this), m_tray(new KStatusNotifierItem("kquickshare", this)) {
     setWindowTitle("KQuickShare");
     resize(680, 660);
@@ -391,8 +392,8 @@ void Receiver::incoming(InboundConnection *conn, const TransferRequest &r) {
     if (m_settings.contains("trusted/" + trustKey(r))) {
         accept(conn);
         cancel->show();
-        auto *n = notify("receiving", tr("Receiving from «%1»").arg(r.deviceName),
-                         tr("Automatic reception · %1").arg(sizeText(r.totalBytes)));
+        notify("receiving", tr("Receiving from «%1»").arg(r.deviceName),
+               tr("Automatic reception · %1").arg(sizeText(r.totalBytes)));
     } else {
         auto *n = notify(
             "request", tr("«%1» is sending files").arg(r.deviceName),

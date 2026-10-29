@@ -54,9 +54,9 @@ class OutboundConnection : public QObject {
     crypto::EvpPkeyPtr m_key{nullptr, &EVP_PKEY_free};
     crypto::EvpPkeyPtr m_qrKey{nullptr, &EVP_PKEY_free};
     QByteArray m_auth;
-    QByteArray m_enc, m_mac, m_dec, m_verify;
+    QByteArray m_encryptKey, m_sendHmacKey, m_decryptKey, m_recvHmacKey;
     qint32 m_tx = 0, m_rx = 0;
-    QHash<qint64, QByteArray> m_bytes;
+    frames::BytesPayloadAssembler m_bytes{4};
     QVector<File> m_files;
     QByteArray m_text;
     bool m_isText = false, m_pumping = false, m_closing = false;
