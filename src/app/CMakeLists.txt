@@ -15,10 +15,10 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/org.kde.kquickshare.systemd DESTINATIO
 
 install(DIRECTORY ../../integration/ DESTINATION share/kquickshare/integration USE_SOURCE_PERMISSIONS)
 
-install(FILES icons/org.kde.kquickshare.svg icons/22/org.kde.kquickshare-symbolic.svg icons/22/org.kde.kquickshare-attention-symbolic.svg
+install(FILES icons/org.kde.kquickshare.svg icons/22/org.kde.kquickshare-symbolic.svg
     DESTINATION share/icons/hicolor/scalable/apps)
 foreach(size 16 22)
-    install(FILES icons/${size}/org.kde.kquickshare-symbolic.svg icons/${size}/org.kde.kquickshare-attention-symbolic.svg
+    install(FILES icons/${size}/org.kde.kquickshare-symbolic.svg
         DESTINATION share/icons/hicolor/${size}x${size}/apps)
 endforeach()
 

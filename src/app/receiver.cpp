@@ -236,7 +236,6 @@ Receiver::Receiver(const QString &destinationOverride)
     m_tray->setTitle("KQuickShare");
     m_tray->setCategory(KStatusNotifierItem::Communications);
     m_tray->setIconByName("org.kde.kquickshare-symbolic");
-    m_tray->setAttentionIconByName("org.kde.kquickshare-attention-symbolic");
     m_tray->setStandardActionsEnabled(false);
     auto *menu = new QMenu(this);
     menu->addAction(QIcon::fromTheme("org.kde.kquickshare"), tr("Transfers and settings…"), this, &Receiver::reveal);
