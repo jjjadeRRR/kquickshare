@@ -82,7 +82,7 @@ private:
         IncomingFile meta;
         QString destPath;
         qint64 bytesTransferred = 0;
-        QFile *file = nullptr;
+        QFile *file = nullptr; // created on the first chunk
     };
 
     void processFrame(const QByteArray &frameData);
@@ -126,6 +126,7 @@ private:
     // Transfer state
     frames::BytesPayloadAssembler m_bytesPayloads{16};
     QHash<qint64, ReceivingFile> m_files;
+    QString m_destDir;
     qint64 m_textPayloadId = 0;
     TransferRequest m_pendingRequest;
     QStringList m_savedFiles;

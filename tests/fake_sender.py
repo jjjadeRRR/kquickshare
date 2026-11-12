@@ -9,11 +9,13 @@ import hmac
 import os
 from pathlib import Path
 import re
+import resource
 import select
 import socket
 import struct
 import subprocess
 import tempfile
+import threading
 import unittest
 from cryptography.hazmat.primitives import hashes, padding, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -194,19 +196,24 @@ class Transfers(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.dest = Path(self.temp.name)
-        self.process = subprocess.Popen([BINARY, '--dest', str(self.dest), '--once'], stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, env={**os.environ, 'QT_FORCE_STDERR_LOGGING': '1'})
+        # A low descriptor limit proves that large batches do not keep a file open per attachment.
+        limit = lambda: resource.setrlimit(resource.RLIMIT_NOFILE, (256, resource.getrlimit(resource.RLIMIT_NOFILE)[1]))
+        self.process = subprocess.Popen([BINARY, '--dest', str(self.dest), '--once'], stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, env={**os.environ, 'QT_FORCE_STDERR_LOGGING': '1'}, preexec_fn=limit)
         self.addCleanup(self.cleanup_process)
         ready, _, _ = select.select([self.process.stderr], [], [], 8)
         self.assertTrue(ready, 'receiver did not start')
         line = self.process.stderr.readline().decode()
         match = re.search(r'on port (\d+)', line)
         self.assertIsNotNone(match, line)
+        # Keep draining the log so a verbose receiver never blocks on a full pipe.
+        self.log = []
+        threading.Thread(target=lambda: self.log.extend(self.process.stderr), daemon=True).start()
         self.sender = Sender('127.0.0.1', int(match[1]))
 
     def cleanup_process(self):
         if self.process.poll() is None:
             self.process.terminate()
-        self.process.communicate(timeout=8)
+        self.process.wait(timeout=8)
         self.temp.cleanup()
 
     def tearDown(self):
@@ -230,6 +237,39 @@ class Transfers(unittest.TestCase):
         self.assertEqual((self.dest / 'hello (1).txt').read_bytes(), data)
         self.assertEqual((self.dest / 'hello.txt').read_bytes(), b'original')
         self.assertEqual((self.dest / 'empty').read_bytes(), b'')
+
+    def test_many_files(self):
+        files = [(100 + i, f'photo-{i}.jpg', 1) for i in range(1000)]
+        kind, response = self.sender.introduce(files)
+        self.assertEqual(one(one(response, 3), 1), 1)
+        for ident, _, _ in files:
+            self.sender.payload(ident, 2, 1, 0, b'x', True)
+        self.wait()
+        self.assertEqual(len(list(self.dest.iterdir())), 1000)
+
+    def test_long_cyrillic_name(self):
+        name = 'Фото с длинным названием ' * 12 + '.jpg'
+        self.sender.introduce([(10, name, 1), (11, name, 1)])
+        self.sender.payload(10, 2, 1, 0, b'a', True)
+        self.sender.payload(11, 2, 1, 0, b'b', True)
+        self.wait()
+        saved = sorted(self.dest.iterdir())
+        self.assertEqual(len(saved), 2)
+        for path in saved:
+            self.assertLessEqual(len(path.name.encode()), 255)
+            self.assertTrue(path.name.startswith('Фото с длинным'))
+            self.assertTrue(path.name.endswith('.jpg'))
+        self.assertEqual(sorted(p.read_bytes() for p in saved), [b'a', b'b'])
+
+    def test_informational_frames_before_introduction(self):
+        # Phones may interleave frames without a decision before INTRODUCTION.
+        self.sender.send_sharing(sharing(5, 6, b''))  # CERTIFICATE_INFO
+        self.sender.send_sharing(sharing(7, 8, b''))  # PROGRESS_UPDATE
+        self.sender.send_sharing(sharing(42, 9, b''))  # a newer frame type
+        self.sender.introduce([(10, 'after.txt', 2)])
+        self.sender.payload(10, 2, 2, 0, b'ok', True)
+        self.wait()
+        self.assertEqual((self.dest / 'after.txt').read_bytes(), b'ok')
 
     def test_last_chunk_with_body(self):
         self.sender.introduce([(10, 'last.txt', 5)])

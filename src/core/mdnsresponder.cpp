@@ -1,6 +1,8 @@
 #include "mdnsresponder.h"
 
+#include <QFile>
 #include <QNetworkInterface>
+#include <QSet>
 #include <QTimer>
 #include <QUdpSocket>
 #include <QVariant>
@@ -12,11 +14,32 @@ constexpr quint16 kMdnsPort = 5353;
 const QHostAddress kMdnsGroup(QStringLiteral("224.0.0.251"));
 constexpr int kAnnounceIntervalMs = 60'000;
 
+// Interfaces that carry an IPv4 default route in the main routing table.
+// Bridges for containers and VMs (docker0, virbr0) use private addresses too,
+// so the default route is what identifies the network the phone is on.
+QSet<QString> defaultRouteInterfaces()
+{
+    QSet<QString> names;
+    QFile routes(QStringLiteral("/proc/net/route"));
+    if (!routes.open(QIODevice::ReadOnly | QIODevice::Text))
+        return names;
+    routes.readLine(); // header
+    while (!routes.atEnd()) {
+        const QList<QByteArray> columns = routes.readLine().simplified().split(' ');
+        // Iface Destination Gateway Flags ...; RTF_UP = 0x1
+        if (columns.size() > 3 && columns[1] == "00000000" && (columns[3].toUInt(nullptr, 16) & 1))
+            names.insert(QString::fromLatin1(columns[0]));
+    }
+    return names;
+}
+
 // Picks the primary LAN IPv4: up & running, not loopback, not point-to-point,
-// not link-local. Prefers private RFC1918 addresses.
+// not link-local. Prefers the default-route interface, then private RFC1918
+// addresses.
 QPair<QHostAddress, QNetworkInterface> pickPrimaryIpv4()
 {
-    QPair<QHostAddress, QNetworkInterface> fallback;
+    const QSet<QString> defaultRoutes = defaultRouteInterfaces();
+    QPair<QHostAddress, QNetworkInterface> privateCandidate, fallback;
     const auto interfaces = QNetworkInterface::allInterfaces();
     for (const QNetworkInterface &iface : interfaces) {
         const auto flags = iface.flags();
@@ -30,13 +53,15 @@ QPair<QHostAddress, QNetworkInterface> pickPrimaryIpv4()
             QPair<QHostAddress, QNetworkInterface> candidate{addr, iface};
             const quint32 v = addr.toIPv4Address();
             const bool isPrivate = (v >> 24) == 10 || (v >> 16) == 0xC0A8 || (v >> 20) == 0xAC1;
-            if (isPrivate)
+            if (isPrivate && defaultRoutes.contains(iface.name()))
                 return candidate;
+            if (isPrivate && privateCandidate.first.isNull())
+                privateCandidate = candidate;
             if (fallback.first.isNull())
                 fallback = candidate;
         }
     }
-    return fallback;
+    return privateCandidate.first.isNull() ? fallback : privateCandidate;
 }
 } // namespace
 
@@ -57,10 +82,18 @@ MdnsResponder::~MdnsResponder()
 bool MdnsResponder::start()
 {
     const auto [ipv4, iface] = pickPrimaryIpv4();
+    // The receiver retries every few seconds while offline; report the state
+    // change once instead of filling the journal.
+    static bool reportedOffline = false;
     if (ipv4.isNull()) {
-        qWarning("MdnsResponder: no suitable IPv4 interface found");
+        if (!reportedOffline)
+            qWarning("MdnsResponder: no suitable IPv4 interface found; waiting for a network");
+        reportedOffline = true;
         return false;
     }
+    if (reportedOffline)
+        qInfo("MdnsResponder: advertising on %s", qPrintable(ipv4.toString()));
+    reportedOffline = false;
     m_ipv4 = ipv4;
 
     m_socket = new QUdpSocket(this);

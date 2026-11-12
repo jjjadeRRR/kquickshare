@@ -124,10 +124,10 @@ Settings). See the [firewall instructions](docs/COMPATIBILITY.md#network-and-fir
 
 ## Received text
 
-The **Settings** tab has two independent options, all enabled by default:
+The **Settings** tab has four independent options:
 
-- **Copy received text to the clipboard**.
-- **Save received text as a file**.
+- **Copy received text to the clipboard** (on by default).
+- **Save received text as a file** (on by default).
 - **Copy received photos to the clipboard** (off by default).
 - **Open received links in the browser**, http and https only (off by default).
 
@@ -135,11 +135,12 @@ Click **Apply** to save your choices. Text includes Quick Share text messages
 (such as sharing copied text on Android) and valid UTF-8 `.txt` attachments up to
 5 MiB. Disable saving to keep these text files out of Downloads; disabling both
 text options discards received text. Photos and other files always remain in
-Downloads.
+the download folder.
 
 The clipboard changes only after a successful text transfer. If several text
 attachments arrive, the last processed text remains in the clipboard. Photos
-are saved in Downloads and never change the clipboard. Invalid or oversized
+change the clipboard only when **Copy received photos to the clipboard** is
+enabled; with several photos the last one is copied. Invalid or oversized
 `.txt` files are preserved as ordinary files.
 
 ## Optional clipboard-history button (Plasma 6.8)

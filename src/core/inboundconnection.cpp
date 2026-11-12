@@ -16,20 +16,49 @@ namespace
 using frames::kMaxFrameLength;
 constexpr int kConsentTimeoutMs = 120'000;
 
+constexpr qsizetype kMaxNameBytes = 255; // NAME_MAX on Linux file systems
+
+// Shortens base so that base + tag + "." + suffix fits NAME_MAX bytes of UTF-8,
+// cutting only at code point boundaries. Cyrillic names reach the limit at
+// roughly 127 characters.
+QString fittedName(QString base, const QString &tag, QString suffix)
+{
+    auto bytes = [](const QString &text) {
+        return text.toUtf8().size();
+    };
+    if (bytes(suffix) > 32) // not a real extension; keep it as part of the name
+        suffix.clear();
+    const qsizetype reserved = bytes(tag) + (suffix.isEmpty() ? 0 : 1 + bytes(suffix));
+    while (!base.isEmpty() && bytes(base) + reserved > kMaxNameBytes) {
+        base.chop(1);
+        if (!base.isEmpty() && base.back().isHighSurrogate())
+            base.chop(1);
+    }
+    if (base.isEmpty())
+        base = QStringLiteral("unnamed");
+    QString name = base + tag;
+    if (!suffix.isEmpty())
+        name += QLatin1Char('.') + suffix;
+    return name;
+}
+
 QString uniqueDestination(const QString &dir, const QString &fileName)
 {
     QString cleanName = QFileInfo(fileName).fileName(); // strip any path components
     if (cleanName.isEmpty() || cleanName == "." || cleanName == "..")
         cleanName = QStringLiteral("unnamed");
+    const QString base = QFileInfo(cleanName).completeBaseName();
+    const QString suffix = QFileInfo(cleanName).suffix();
+    if (cleanName.toUtf8().size() > kMaxNameBytes)
+        cleanName = base.isEmpty() ? fittedName(cleanName, {}, {}) : fittedName(base, {}, suffix);
     QString dest = QDir(dir).filePath(cleanName);
     if (!QFileInfo::exists(dest))
         return dest;
-    const QString base = QFileInfo(cleanName).completeBaseName();
-    const QString suffix = QFileInfo(cleanName).suffix();
+    const QString uniqueBase = QFileInfo(cleanName).completeBaseName();
+    const QString uniqueSuffix = QFileInfo(cleanName).suffix();
     for (int i = 1;; ++i) {
-        QString candidate = base + QStringLiteral(" (%1)").arg(i);
-        if (!suffix.isEmpty())
-            candidate += QLatin1Char('.') + suffix;
+        const QString tag = QStringLiteral(" (%1)").arg(i);
+        const QString candidate = uniqueBase.isEmpty() ? fittedName(cleanName, tag, {}) : fittedName(uniqueBase, tag, uniqueSuffix);
         dest = QDir(dir).filePath(candidate);
         if (!QFileInfo::exists(dest))
             return dest;
@@ -325,9 +354,22 @@ void InboundConnection::processSharingFrame(const QByteArray &data)
         finishWithError(tr("Cancelled by the sender"));
         return;
     }
+    // During the handshake some phones interleave frames that carry no
+    // decision (certificate info, progress, frame types newer than this
+    // client). Failing on them aborted the first attempt of a share, which the
+    // phone then had to retry. Skip them; the idle timer still ends a stalled peer.
+    const bool informational = frame.type == frames::SharingFrameType::CertificateInfo || frame.type == frames::SharingFrameType::ProgressUpdate
+        || frame.type == frames::SharingFrameType::Response || frame.type == frames::SharingFrameType::Unknown
+        || int(frame.type) > int(frames::SharingFrameType::ProgressUpdate);
+    const bool handshake = m_state == State::SentConnectionResponse || m_state == State::SentPairedKeyResult || m_state == State::ReceivedPairedKeyResult;
+    if (handshake && informational) {
+        qInfo("InboundConnection: skipped sharing frame type %d in state %d", int(frame.type), int(m_state));
+        return;
+    }
     switch (m_state) {
     case State::SentConnectionResponse:
         if (frame.type != frames::SharingFrameType::PairedKeyEncryption) {
+            qWarning("InboundConnection: got sharing frame type %d instead of PAIRED_KEY_ENCRYPTION", int(frame.type));
             finishWithError(tr("Expected PAIRED_KEY_ENCRYPTION"));
             return;
         }
@@ -336,6 +378,7 @@ void InboundConnection::processSharingFrame(const QByteArray &data)
         break;
     case State::SentPairedKeyResult:
         if (frame.type != frames::SharingFrameType::PairedKeyResult) {
+            qWarning("InboundConnection: got sharing frame type %d instead of PAIRED_KEY_RESULT", int(frame.type));
             finishWithError(tr("Expected PAIRED_KEY_RESULT"));
             return;
         }
@@ -343,6 +386,7 @@ void InboundConnection::processSharingFrame(const QByteArray &data)
         break;
     case State::ReceivedPairedKeyResult: {
         if (frame.type != frames::SharingFrameType::Introduction) {
+            qWarning("InboundConnection: got sharing frame type %d instead of INTRODUCTION", int(frame.type));
             finishWithError(tr("Expected INTRODUCTION"));
             return;
         }
@@ -424,6 +468,17 @@ void InboundConnection::processFileChunk(const frames::OfflineFrame &frame)
         finishWithError(tr("File exceeds its declared size"));
         return;
     }
+    if (!file.file) {
+        auto *temporary = new QTemporaryFile(QDir(m_destDir).filePath(QStringLiteral(".kquickshare-XXXXXX.part")));
+        temporary->setAutoRemove(false);
+        if (!temporary->open()) {
+            const QString reason = temporary->errorString();
+            delete temporary;
+            finishWithError(tr("Could not create file %1: %2").arg(file.meta.name, reason));
+            return;
+        }
+        file.file = temporary;
+    }
     if (chunk.hasBody && !chunk.body.isEmpty()) {
         if (file.file->write(chunk.body) != chunk.body.size()) {
             finishWithError(tr("Disk write error"));
@@ -447,7 +502,7 @@ void InboundConnection::processFileChunk(const frames::OfflineFrame &frame)
         // Publish only complete files, without ever replacing an existing path.
         bool renamed = false;
         for (int attempt = 0; attempt < 100; ++attempt) {
-            file.destPath = uniqueDestination(QFileInfo(file.destPath).absolutePath(), file.meta.name);
+            file.destPath = uniqueDestination(m_destDir, file.meta.name);
             if (file.file->rename(file.destPath)) {
                 renamed = true;
                 break;
@@ -487,24 +542,24 @@ void InboundConnection::acceptTransfer(const QString &destDir)
         finishWithError(tr("Could not create the downloads folder"));
         return;
     }
+    if (!QFileInfo(destDir).isWritable()) {
+        sendSharingFrame(frames::buildSharingResponseFrame(2)); // REJECT
+        finishWithError(tr("The downloads folder is not writable: %1").arg(destDir));
+        return;
+    }
     const QStorageInfo storage(destDir);
     if (storage.isValid() && storage.bytesAvailable() < m_pendingRequest.totalBytes) {
         sendSharingFrame(frames::buildSharingResponseFrame(3));
         finishWithError(tr("Not enough disk space"));
         return;
     }
+    // Temporary files are created when a payload's first chunk arrives. A batch
+    // of up to 1000 attachments must not hold a descriptor per file (the usual
+    // soft limit is 1024), and the phone sends payloads one after another.
+    m_destDir = destDir;
     for (const IncomingFile &meta : m_pendingRequest.files) {
         ReceivingFile file;
         file.meta = meta;
-        file.destPath = uniqueDestination(destDir, meta.name);
-        auto *temporary = new QTemporaryFile(QDir(destDir).filePath(QStringLiteral(".kquickshare-XXXXXX.part")));
-        temporary->setAutoRemove(false);
-        file.file = temporary;
-        if (!temporary->open()) {
-            delete temporary;
-            finishWithError(tr("Could not create file %1").arg(file.destPath));
-            return;
-        }
         m_files.insert(meta.payloadId, file);
     }
     sendSharingFrame(frames::buildSharingResponseFrame(1)); // ACCEPT
@@ -599,6 +654,8 @@ void InboundConnection::cleanupFiles(bool deletePartial)
         m_consentTimer = nullptr;
     }
     for (auto it = m_files.begin(); it != m_files.end(); ++it) {
+        if (!it->file)
+            continue;
         it->file->close();
         if (deletePartial)
             QFile::remove(it->file->fileName());

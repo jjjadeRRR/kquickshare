@@ -12,232 +12,237 @@
 <context>
     <name>InboundConnection</name>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="50"/>
+        <location filename="../src/core/inboundconnection.cpp" line="79"/>
         <source>The device is not responding</source>
         <translation>Устройство не отвечает</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="64"/>
+        <location filename="../src/core/inboundconnection.cpp" line="93"/>
         <source>Connection interrupted</source>
         <translation>Соединение прервано</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="98"/>
+        <location filename="../src/core/inboundconnection.cpp" line="127"/>
         <source>Frame is too large</source>
         <translation>Слишком большой кадр</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="134"/>
+        <location filename="../src/core/inboundconnection.cpp" line="163"/>
         <source>Expected CONNECTION_REQUEST</source>
         <translation>Ожидался CONNECTION_REQUEST</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="139"/>
+        <location filename="../src/core/inboundconnection.cpp" line="168"/>
         <source>Invalid endpoint information</source>
         <translation>Некорректный endpoint info</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="152"/>
+        <location filename="../src/core/inboundconnection.cpp" line="181"/>
         <source>Expected UKEY2 CLIENT_INIT</source>
         <translation>Ожидался UKEY2 CLIENT_INIT</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="158"/>
+        <location filename="../src/core/inboundconnection.cpp" line="187"/>
         <source>Invalid CLIENT_INIT</source>
         <translation>Некорректный CLIENT_INIT</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="163"/>
+        <location filename="../src/core/inboundconnection.cpp" line="192"/>
         <source>UKEY2: invalid version</source>
         <translation>UKEY2: неверная версия</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="168"/>
+        <location filename="../src/core/inboundconnection.cpp" line="197"/>
         <source>UKEY2: invalid random value</source>
         <translation>UKEY2: неверный random</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="173"/>
+        <location filename="../src/core/inboundconnection.cpp" line="202"/>
         <source>UKEY2: missing P256_SHA512 commitment</source>
         <translation>UKEY2: нет коммитмента P256_SHA512</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="178"/>
+        <location filename="../src/core/inboundconnection.cpp" line="207"/>
         <source>UKEY2: invalid next_protocol</source>
         <translation>UKEY2: неверный next_protocol</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="186"/>
+        <location filename="../src/core/inboundconnection.cpp" line="215"/>
         <source>Could not generate a key</source>
         <translation>Не удалось сгенерировать ключ</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="191"/>
+        <location filename="../src/core/inboundconnection.cpp" line="220"/>
         <source>Could not obtain the public key</source>
         <translation>Не удалось получить публичный ключ</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="204"/>
+        <location filename="../src/core/inboundconnection.cpp" line="233"/>
         <source>Expected UKEY2 CLIENT_FINISH</source>
         <translation>Ожидался UKEY2 CLIENT_FINISH</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="208"/>
+        <location filename="../src/core/inboundconnection.cpp" line="237"/>
         <source>UKEY2: commitment mismatch</source>
         <translation>UKEY2: коммитмент не совпал</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="213"/>
+        <location filename="../src/core/inboundconnection.cpp" line="242"/>
         <source>UKEY2: invalid client public key</source>
         <translation>UKEY2: неверный публичный ключ клиента</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="219"/>
+        <location filename="../src/core/inboundconnection.cpp" line="248"/>
         <source>UKEY2: invalid device key</source>
         <translation>UKEY2: недопустимый ключ устройства</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="236"/>
+        <location filename="../src/core/inboundconnection.cpp" line="265"/>
         <source>Expected CONNECTION_RESPONSE</source>
         <translation>Ожидался CONNECTION_RESPONSE</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="251"/>
+        <location filename="../src/core/inboundconnection.cpp" line="280"/>
         <source>Could not decrypt the message</source>
         <translation>Не удалось расшифровать сообщение</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="256"/>
+        <location filename="../src/core/inboundconnection.cpp" line="285"/>
         <source>Invalid offline frame</source>
         <translation>Некорректный offline frame</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="268"/>
+        <location filename="../src/core/inboundconnection.cpp" line="297"/>
         <source>The remote device disconnected</source>
         <translation>Удалённая сторона разорвала соединение</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="289"/>
+        <location filename="../src/core/inboundconnection.cpp" line="318"/>
         <source>BYTES payload is too large</source>
         <translation>Слишком большой BYTES-payload</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="292"/>
+        <location filename="../src/core/inboundconnection.cpp" line="321"/>
         <source>Invalid BYTES payload</source>
         <translation>Некорректный BYTES-payload</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="299"/>
+        <location filename="../src/core/inboundconnection.cpp" line="328"/>
         <source>Invalid text size</source>
         <translation>Неверный размер текста</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="316"/>
+        <location filename="../src/core/inboundconnection.cpp" line="345"/>
         <source>Invalid sharing frame</source>
         <translation>Некорректный sharing frame</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="325"/>
+        <location filename="../src/core/inboundconnection.cpp" line="354"/>
         <source>Cancelled by the sender</source>
         <translation>Отменено отправителем</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="331"/>
+        <location filename="../src/core/inboundconnection.cpp" line="360"/>
         <source>Expected PAIRED_KEY_ENCRYPTION</source>
         <translation>Ожидался PAIRED_KEY_ENCRYPTION</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="339"/>
+        <location filename="../src/core/inboundconnection.cpp" line="368"/>
         <source>Expected PAIRED_KEY_RESULT</source>
         <translation>Ожидался PAIRED_KEY_RESULT</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="346"/>
+        <location filename="../src/core/inboundconnection.cpp" line="375"/>
         <source>Expected INTRODUCTION</source>
         <translation>Ожидался INTRODUCTION</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="357"/>
+        <location filename="../src/core/inboundconnection.cpp" line="386"/>
         <source>Too many files</source>
         <translation>Слишком много файлов</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="363"/>
+        <location filename="../src/core/inboundconnection.cpp" line="392"/>
         <source>Invalid file metadata</source>
         <translation>Недопустимые метаданные файлов</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="383"/>
+        <location filename="../src/core/inboundconnection.cpp" line="412"/>
         <source>Unsupported attachment type</source>
         <translation>Неподдерживаемый тип вложения</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="393"/>
+        <location filename="../src/core/inboundconnection.cpp" line="422"/>
         <source>Timed out waiting for approval</source>
         <translation>Истёк таймаут ожидания ответа пользователя</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="408"/>
+        <location filename="../src/core/inboundconnection.cpp" line="437"/>
         <source>Unexpected file chunk</source>
         <translation>Неожиданный файловый чанк</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="414"/>
+        <location filename="../src/core/inboundconnection.cpp" line="443"/>
         <source>Unknown payload ID %1</source>
         <translation>Неизвестный payload ID %1</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="420"/>
+        <location filename="../src/core/inboundconnection.cpp" line="449"/>
         <source>Invalid file offset</source>
         <translation>Неверное смещение в файле</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="424"/>
+        <location filename="../src/core/inboundconnection.cpp" line="453"/>
         <source>File exceeds its declared size</source>
         <translation>Размер файла превышен</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="429"/>
+        <location filename="../src/core/inboundconnection.cpp" line="462"/>
+        <source>Could not create file %1: %2</source>
+        <translation>Не удалось создать файл %1: %2</translation>
+    </message>
+    <message>
+        <location filename="../src/core/inboundconnection.cpp" line="469"/>
         <source>Disk write error</source>
         <translation>Ошибка записи на диск</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="439"/>
+        <location filename="../src/core/inboundconnection.cpp" line="479"/>
         <source>The file is incomplete</source>
         <translation>Файл получен не полностью</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="443"/>
+        <location filename="../src/core/inboundconnection.cpp" line="483"/>
         <source>Could not save the file</source>
         <translation>Не удалось сохранить файл</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="459"/>
+        <location filename="../src/core/inboundconnection.cpp" line="499"/>
         <source>Could not save file %1</source>
         <translation>Не удалось сохранить файл %1</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="487"/>
+        <location filename="../src/core/inboundconnection.cpp" line="527"/>
         <source>Could not create the downloads folder</source>
         <translation>Не удалось создать папку загрузок</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="493"/>
+        <location filename="../src/core/inboundconnection.cpp" line="532"/>
+        <source>The downloads folder is not writable: %1</source>
+        <translation>Нет прав на запись в папку загрузок: %1</translation>
+    </message>
+    <message>
+        <location filename="../src/core/inboundconnection.cpp" line="538"/>
         <source>Not enough disk space</source>
         <translation>Недостаточно места на диске</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="505"/>
-        <source>Could not create file %1</source>
-        <translation>Не удалось создать файл %1</translation>
-    </message>
-    <message>
-        <location filename="../src/core/inboundconnection.cpp" line="519"/>
+        <location filename="../src/core/inboundconnection.cpp" line="559"/>
         <source>Rejected by the user</source>
         <translation>Отклонено пользователем</translation>
     </message>
     <message>
-        <location filename="../src/core/inboundconnection.cpp" line="524"/>
+        <location filename="../src/core/inboundconnection.cpp" line="564"/>
         <source>Transfer cancelled</source>
         <translation>Передача отменена</translation>
     </message>
@@ -245,32 +250,32 @@
 <context>
     <name>Main</name>
     <message>
-        <location filename="../src/app/main.cpp" line="120"/>
+        <location filename="../src/app/main.cpp" line="121"/>
         <source>Quick Share for KDE Plasma — Android file transfers</source>
         <translation>Quick Share для KDE Plasma — приём файлов с Android</translation>
     </message>
     <message>
-        <location filename="../src/app/main.cpp" line="121"/>
+        <location filename="../src/app/main.cpp" line="122"/>
         <source>Internal background service mode</source>
         <translation>Внутренний запуск фоновой службы</translation>
     </message>
     <message>
-        <location filename="../src/app/main.cpp" line="124"/>
+        <location filename="../src/app/main.cpp" line="125"/>
         <source>Start in the tray without opening a window</source>
         <translation>Запуск в трее без открытия окна</translation>
     </message>
     <message>
-        <location filename="../src/app/main.cpp" line="125"/>
+        <location filename="../src/app/main.cpp" line="126"/>
         <source>Send the selected files to a phone</source>
         <translation>Отправить выбранные файлы на телефон</translation>
     </message>
     <message>
-        <location filename="../src/app/main.cpp" line="126"/>
+        <location filename="../src/app/main.cpp" line="127"/>
         <source>Send clipboard text to a phone</source>
         <translation>Отправить текст из буфера обмена на телефон</translation>
     </message>
     <message>
-        <location filename="../src/app/main.cpp" line="127"/>
+        <location filename="../src/app/main.cpp" line="128"/>
         <source>Local files to send</source>
         <translation>Локальные файлы для отправки</translation>
     </message>
@@ -311,102 +316,107 @@
         <translation>Файл недоступен: %1</translation>
     </message>
     <message>
-        <location filename="../src/core/outboundconnection.cpp" line="92"/>
+        <location filename="../src/core/outboundconnection.cpp" line="90"/>
         <source>Text must be at most 5 MiB</source>
         <translation>Нужен текст размером до 5 МиБ</translation>
     </message>
     <message>
-        <location filename="../src/core/outboundconnection.cpp" line="113"/>
+        <location filename="../src/core/outboundconnection.cpp" line="111"/>
         <source>Connecting to the phone…</source>
         <translation>Подключение к телефону…</translation>
     </message>
     <message>
-        <location filename="../src/core/outboundconnection.cpp" line="119"/>
+        <location filename="../src/core/outboundconnection.cpp" line="117"/>
         <source>Could not create an encryption key</source>
         <translation>Не удалось создать ключ шифрования</translation>
     </message>
     <message>
-        <location filename="../src/core/outboundconnection.cpp" line="169"/>
+        <location filename="../src/core/outboundconnection.cpp" line="167"/>
         <source>Invalid frame size</source>
         <translation>Недопустимый размер кадра</translation>
     </message>
     <message>
-        <location filename="../src/core/outboundconnection.cpp" line="209"/>
+        <location filename="../src/core/outboundconnection.cpp" line="207"/>
         <source>Could not negotiate encryption with the phone</source>
         <translation>Не удалось согласовать шифрование с телефоном</translation>
     </message>
     <message>
-        <location filename="../src/core/outboundconnection.cpp" line="220"/>
+        <location filename="../src/core/outboundconnection.cpp" line="218"/>
         <source>The phone rejected the connection</source>
         <translation>Телефон отклонил подключение</translation>
     </message>
     <message>
-        <location filename="../src/core/outboundconnection.cpp" line="230"/>
+        <location filename="../src/core/outboundconnection.cpp" line="228"/>
         <source>Encrypted message verification failed</source>
         <translation>Ошибка проверки зашифрованного сообщения</translation>
     </message>
     <message>
-        <location filename="../src/core/outboundconnection.cpp" line="239"/>
+        <location filename="../src/core/outboundconnection.cpp" line="237"/>
         <source>The phone interrupted the transfer</source>
         <translation>Телефон прервал передачу</translation>
     </message>
     <message>
-        <location filename="../src/core/outboundconnection.cpp" line="249"/>
+        <location filename="../src/core/outboundconnection.cpp" line="247"/>
         <source>Invalid message size</source>
         <translation>Недопустимый размер сообщения</translation>
     </message>
     <message>
-        <location filename="../src/core/outboundconnection.cpp" line="252"/>
+        <location filename="../src/core/outboundconnection.cpp" line="250"/>
         <source>Invalid message from the phone</source>
         <translation>Повреждённое сообщение телефона</translation>
     </message>
     <message>
-        <location filename="../src/core/outboundconnection.cpp" line="263"/>
+        <location filename="../src/core/outboundconnection.cpp" line="261"/>
         <source>Invalid Quick Share message</source>
         <translation>Повреждённое сообщение Quick Share</translation>
     </message>
     <message>
-        <location filename="../src/core/outboundconnection.cpp" line="267"/>
+        <location filename="../src/core/outboundconnection.cpp" line="265"/>
         <source>Cancelled on the phone</source>
         <translation>Отменено на телефоне</translation>
     </message>
     <message>
-        <location filename="../src/core/outboundconnection.cpp" line="305"/>
+        <location filename="../src/core/outboundconnection.cpp" line="303"/>
         <source>Approve reception on your phone</source>
         <translation>Подтвердите приём на телефоне</translation>
     </message>
     <message>
-        <location filename="../src/core/outboundconnection.cpp" line="308"/>
+        <location filename="../src/core/outboundconnection.cpp" line="306"/>
         <source>Not enough space on the phone</source>
         <translation>На телефоне недостаточно места</translation>
     </message>
     <message>
-        <location filename="../src/core/outboundconnection.cpp" line="309"/>
+        <location filename="../src/core/outboundconnection.cpp" line="307"/>
         <source>Approval timed out</source>
         <translation>Время подтверждения истекло</translation>
     </message>
     <message>
-        <location filename="../src/core/outboundconnection.cpp" line="310"/>
+        <location filename="../src/core/outboundconnection.cpp" line="308"/>
         <source>The phone rejected the transfer</source>
         <translation>Телефон отклонил передачу</translation>
     </message>
     <message>
-        <location filename="../src/core/outboundconnection.cpp" line="315"/>
+        <location filename="../src/core/outboundconnection.cpp" line="313"/>
         <source>Sending…</source>
         <translation>Отправка…</translation>
     </message>
     <message>
-        <location filename="../src/core/outboundconnection.cpp" line="341"/>
+        <location filename="../src/core/outboundconnection.cpp" line="338"/>
+        <source>Could not open file %1: %2</source>
+        <translation>Не удалось открыть файл %1: %2</translation>
+    </message>
+    <message>
+        <location filename="../src/core/outboundconnection.cpp" line="343"/>
         <source>Could not read file: %1</source>
         <translation>Ошибка чтения файла: %1</translation>
     </message>
     <message>
-        <location filename="../src/core/outboundconnection.cpp" line="361"/>
+        <location filename="../src/core/outboundconnection.cpp" line="363"/>
         <source>Finishing transfer…</source>
         <translation>Завершение передачи…</translation>
     </message>
     <message>
-        <location filename="../src/core/outboundconnection.cpp" line="374"/>
+        <location filename="../src/core/outboundconnection.cpp" line="376"/>
         <source>Transfer cancelled</source>
         <translation>Передача отменена</translation>
     </message>
@@ -433,7 +443,7 @@ The phone and computer must be on the same local network.</source>
     </message>
     <message>
         <location filename="../src/app/receiver.cpp" line="103"/>
-        <location filename="../src/app/receiver.cpp" line="246"/>
+        <location filename="../src/app/receiver.cpp" line="245"/>
         <source>Receive files</source>
         <translation>Принимать файлы</translation>
     </message>
@@ -549,13 +559,13 @@ The phone and computer must be on the same local network.</source>
     </message>
     <message>
         <location filename="../src/app/receiver.cpp" line="176"/>
-        <location filename="../src/app/receiver.cpp" line="257"/>
+        <location filename="../src/app/receiver.cpp" line="256"/>
         <source>Send files…</source>
         <translation>Отправить файлы…</translation>
     </message>
     <message>
         <location filename="../src/app/receiver.cpp" line="177"/>
-        <location filename="../src/app/receiver.cpp" line="258"/>
+        <location filename="../src/app/receiver.cpp" line="257"/>
         <source>Send clipboard text…</source>
         <translation>Отправить текст из буфера…</translation>
     </message>
@@ -566,7 +576,7 @@ The phone and computer must be on the same local network.</source>
     </message>
     <message>
         <location filename="../src/app/receiver.cpp" line="190"/>
-        <location filename="../src/app/receiver.cpp" line="243"/>
+        <location filename="../src/app/receiver.cpp" line="242"/>
         <source>Open downloads folder</source>
         <translation>Открыть папку загрузок</translation>
     </message>
@@ -591,158 +601,158 @@ The phone and computer must be on the same local network.</source>
         <translation>Не удалось отключить автозапуск</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="242"/>
+        <location filename="../src/app/receiver.cpp" line="241"/>
         <source>Transfers and settings…</source>
         <translation>Передачи и настройки…</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="260"/>
+        <location filename="../src/app/receiver.cpp" line="259"/>
         <source>Exit</source>
         <translation>Выйти</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="564"/>
+        <location filename="../src/app/receiver.cpp" line="563"/>
         <source>Could not remove text file: %1</source>
         <translation>Не удалось удалить текстовый файл: %1</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="572"/>
+        <location filename="../src/app/receiver.cpp" line="571"/>
         <source>Received. Files saved: %1</source>
         <translation>Получено. Сохранено файлов: %1</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="574"/>
+        <location filename="../src/app/receiver.cpp" line="573"/>
         <source> · Copied to the clipboard</source>
         <translation> · Добавлено в буфер обмена</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="365"/>
+        <location filename="../src/app/receiver.cpp" line="364"/>
         <source>Reception paused</source>
         <translation>Приём приостановлен</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="366"/>
+        <location filename="../src/app/receiver.cpp" line="365"/>
         <source>Online · %1</source>
         <translation>В сети · %1</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="367"/>
+        <location filename="../src/app/receiver.cpp" line="366"/>
         <source>Active transfers: %1</source>
         <translation>Активных передач: %1</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="383"/>
+        <location filename="../src/app/receiver.cpp" line="382"/>
         <source>Open KQuickShare</source>
         <translation>Открыть KQuickShare</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="412"/>
+        <location filename="../src/app/receiver.cpp" line="411"/>
         <source>
 …and %1 more</source>
         <translation>
 …и ещё %1</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="413"/>
+        <location filename="../src/app/receiver.cpp" line="412"/>
         <source>Compare the PIN with your phone and approve reception.</source>
         <translation>Сверьте PIN-код с телефоном и подтвердите приём.</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="423"/>
+        <location filename="../src/app/receiver.cpp" line="422"/>
         <source>Trust this device on my home network</source>
         <translation>Доверять этому устройству в домашней сети</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="424"/>
+        <location filename="../src/app/receiver.cpp" line="423"/>
         <source>Automatic reception matches the name, type and IP address. The phone’s persistent key is not verified.</source>
         <translation>Автоприём по имени, типу и IP-адресу. Без проверки постоянного ключа телефона.</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="427"/>
-        <location filename="../src/app/receiver.cpp" line="473"/>
+        <location filename="../src/app/receiver.cpp" line="426"/>
+        <location filename="../src/app/receiver.cpp" line="472"/>
         <source>Accept</source>
         <translation>Принять</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="428"/>
-        <location filename="../src/app/receiver.cpp" line="479"/>
+        <location filename="../src/app/receiver.cpp" line="427"/>
+        <location filename="../src/app/receiver.cpp" line="478"/>
         <source>Reject</source>
         <translation>Отклонить</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="435"/>
+        <location filename="../src/app/receiver.cpp" line="434"/>
         <source>Cancel transfer</source>
         <translation>Отменить передачу</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="461"/>
+        <location filename="../src/app/receiver.cpp" line="460"/>
         <source>Received %1 of %2</source>
         <translation>Получено %1 из %2</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="466"/>
+        <location filename="../src/app/receiver.cpp" line="465"/>
         <source>Receiving from «%1»</source>
         <translation>Приём от «%1»</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="466"/>
+        <location filename="../src/app/receiver.cpp" line="465"/>
         <source>Automatic reception · %1</source>
         <translation>Автоматический приём · %1</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="469"/>
+        <location filename="../src/app/receiver.cpp" line="468"/>
         <source>«%1» is sending files</source>
         <translation>«%1» отправляет файлы</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="470"/>
+        <location filename="../src/app/receiver.cpp" line="469"/>
         <source>PIN %1 · %2
 Compare the code on your phone.</source>
         <translation>PIN %1 · %2
 Сверьте код на телефоне.</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="499"/>
+        <location filename="../src/app/receiver.cpp" line="498"/>
         <source>Receiving…</source>
         <translation>Получение…</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="536"/>
+        <location filename="../src/app/receiver.cpp" line="535"/>
         <source>Could not save the text to disk</source>
         <translation>Не удалось сохранить текст на диск</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="588"/>
+        <location filename="../src/app/receiver.cpp" line="587"/>
         <source>Received from «%1»</source>
         <translation>Получено от «%1»</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="588"/>
+        <location filename="../src/app/receiver.cpp" line="587"/>
         <source>Transfer from «%1» ended</source>
         <translation>Передача от «%1» завершена</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="591"/>
+        <location filename="../src/app/receiver.cpp" line="590"/>
         <source>Open folder</source>
         <translation>Открыть папку</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="604"/>
+        <location filename="../src/app/receiver.cpp" line="603"/>
         <source>Local files are required</source>
         <translation>Нужны локальные файлы</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="604"/>
+        <location filename="../src/app/receiver.cpp" line="603"/>
         <source>Save the file to your computer first.</source>
         <translation>Сначала сохраните файл на компьютер.</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="619"/>
+        <location filename="../src/app/receiver.cpp" line="618"/>
         <source>The clipboard is empty</source>
         <translation>Буфер обмена пуст</translation>
     </message>
     <message>
-        <location filename="../src/app/receiver.cpp" line="619"/>
+        <location filename="../src/app/receiver.cpp" line="618"/>
         <source>Copy some text before sending.</source>
         <translation>Скопируйте текст перед отправкой.</translation>
     </message>
@@ -750,64 +760,64 @@ Compare the code on your phone.</source>
 <context>
     <name>SendDialog</name>
     <message>
-        <location filename="../src/app/senddialog.cpp" line="20"/>
+        <location filename="../src/app/senddialog.cpp" line="21"/>
         <source>Send with KQuickShare</source>
         <translation>Отправить через KQuickShare</translation>
     </message>
     <message>
-        <location filename="../src/app/senddialog.cpp" line="29"/>
+        <location filename="../src/app/senddialog.cpp" line="30"/>
         <source>Text: %1</source>
         <translation>Текст: %1</translation>
     </message>
     <message>
-        <location filename="../src/app/senddialog.cpp" line="34"/>
+        <location filename="../src/app/senddialog.cpp" line="35"/>
         <source>Files: %1
 %2</source>
         <translation>Файлов: %1
 %2</translation>
     </message>
     <message>
-        <location filename="../src/app/senddialog.cpp" line="37"/>
+        <location filename="../src/app/senddialog.cpp" line="38"/>
         <source>Scan the QR code with your phone camera and open the Quick Share link. Your phone and PC must be on the same network. Alternatively, open Files by Google → Quick Share → Receive on your phone.</source>
         <translation>Сканируйте QR-код камерой телефона и откройте ссылку Quick Share. Телефон и ПК должны быть в одной сети. Либо откройте на телефоне Files by Google → Quick Share → Получить.</translation>
     </message>
     <message>
-        <location filename="../src/app/senddialog.cpp" line="65"/>
+        <location filename="../src/app/senddialog.cpp" line="66"/>
         <source>Searching for phones on the local network…</source>
         <translation>Поиск телефонов в локальной сети…</translation>
     </message>
     <message>
-        <location filename="../src/app/senddialog.cpp" line="75"/>
+        <location filename="../src/app/senddialog.cpp" line="76"/>
         <source>Send</source>
         <translation>Отправить</translation>
     </message>
     <message>
-        <location filename="../src/app/senddialog.cpp" line="79"/>
+        <location filename="../src/app/senddialog.cpp" line="80"/>
         <source>Close</source>
         <translation>Закрыть</translation>
     </message>
     <message>
-        <location filename="../src/app/senddialog.cpp" line="127"/>
+        <location filename="../src/app/senddialog.cpp" line="128"/>
         <source>Searching for phones… Open the Quick Share receive screen on your phone.</source>
         <translation>Поиск телефонов… Откройте на телефоне экран приёма Quick Share.</translation>
     </message>
     <message>
-        <location filename="../src/app/senddialog.cpp" line="127"/>
+        <location filename="../src/app/senddialog.cpp" line="128"/>
         <source>Select a phone and click Send.</source>
         <translation>Выберите телефон и нажмите «Отправить».</translation>
     </message>
     <message>
-        <location filename="../src/app/senddialog.cpp" line="154"/>
+        <location filename="../src/app/senddialog.cpp" line="155"/>
         <source>PIN %1 — compare the code on your phone</source>
         <translation>PIN %1 — сверьте код на телефоне</translation>
     </message>
     <message>
-        <location filename="../src/app/senddialog.cpp" line="163"/>
+        <location filename="../src/app/senddialog.cpp" line="164"/>
         <source>Sent to «%1»</source>
         <translation>Отправлено на «%1»</translation>
     </message>
     <message>
-        <location filename="../src/app/senddialog.cpp" line="168"/>
+        <location filename="../src/app/senddialog.cpp" line="169"/>
         <source>Retry</source>
         <translation>Повторить</translation>
     </message>

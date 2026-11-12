@@ -1,6 +1,7 @@
 #include "localization.h"
 #include "receiver.h"
 
+#include <KSystemClipboard>
 #include <QApplication>
 #include <QClipboard>
 #include <QCommandLineParser>
@@ -131,7 +132,10 @@ int main(int argc, char **argv)
     const bool sending = parser.isSet(QStringLiteral("send")) || !files.isEmpty();
     const bool clipboard = parser.isSet(QStringLiteral("clipboard"));
     const bool background = parser.isSet(QStringLiteral("background"));
-    const QString text = clipboard ? QApplication::clipboard()->text() : QString();
+    // QClipboard only sees the Wayland selection while one of our windows has
+    // focus, which a command-line client never has; KSystemClipboard uses the
+    // data-control protocol (and falls back to QClipboard on X11).
+    const QString text = clipboard ? KSystemClipboard::instance()->text(QClipboard::Clipboard) : QString();
 
     auto bus = QDBusConnection::sessionBus();
     if (!bus.isConnected()) {

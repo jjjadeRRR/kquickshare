@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import os
+import resource
 from pathlib import Path
 import socket
 import select
@@ -93,7 +94,7 @@ class Receiver:
 
 
 class OutboundTests(unittest.TestCase):
-    def run_transfer(self, args, mode='accept'):
+    def run_transfer(self, args, mode='accept', preexec_fn=None):
         with socket.socket() as server:
             server.bind(('127.0.0.1', 0)); server.listen(); server.settimeout(8)
             result = []; errors = []
@@ -101,7 +102,7 @@ class OutboundTests(unittest.TestCase):
                 try: result.append(Receiver(server, mode))
                 except BaseException as error: errors.append(error)
             thread = threading.Thread(target=receive, daemon=True); thread.start()
-            process = subprocess.run([BINARY, '--host', '127.0.0.1', '--port', str(server.getsockname()[1]), *args], capture_output=True, timeout=15, env={**os.environ, 'QT_FORCE_STDERR_LOGGING':'1'})
+            process = subprocess.run([BINARY, '--host', '127.0.0.1', '--port', str(server.getsockname()[1]), *args], capture_output=True, timeout=15, env={**os.environ, 'QT_FORCE_STDERR_LOGGING':'1'}, preexec_fn=preexec_fn)
             thread.join(8); self.assertFalse(thread.is_alive())
             self.assertFalse(errors, repr(errors))
             self.assertEqual(process.returncode, 0 if mode in ('accept', 'slow_finish') else 1, process.stderr.decode())
@@ -115,6 +116,16 @@ class OutboundTests(unittest.TestCase):
                 path = Path(directory)/name; path.write_bytes(data); paths.append(str(path))
             result = self.run_transfer(['--', *paths])
             self.assertEqual(result.files, files)
+
+    def test_many_files(self):
+        # One descriptor per attachment would exceed this limit long before 1000 files.
+        limit = lambda: resource.setrlimit(resource.RLIMIT_NOFILE, (256, resource.getrlimit(resource.RLIMIT_NOFILE)[1]))
+        with tempfile.TemporaryDirectory() as directory:
+            files = {f'photo-{i}.jpg': bytes([i % 256]) for i in range(1000)}
+            paths = []
+            for name, data in files.items():
+                path = Path(directory)/name; path.write_bytes(data); paths.append(str(path))
+            self.assertEqual(self.run_transfer(['--', *paths], preexec_fn=limit).files, files)
 
     def test_text(self):
         text = 'Привет!\n"$()`; & < > — полный текст\n' * 100

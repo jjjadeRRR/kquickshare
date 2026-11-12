@@ -2,6 +2,7 @@
 #include "outboundconnection.h"
 #include <KNotification>
 #include <Prison/Barcode>
+#include <QCoreApplication>
 #include <QFileInfo>
 #include <QHostInfo>
 #include <QLabel>
@@ -170,7 +171,9 @@ void SendDialog::send()
             m_discovery.start();
             updateDevices();
         }
-        auto *n = new KNotification(error.isEmpty() ? "complete" : "error", KNotification::CloseOnTimeout, this);
+        // Not owned by the dialog: closing it right after the transfer must
+        // not withdraw the result notification. KNotification deletes itself.
+        auto *n = new KNotification(error.isEmpty() ? "complete" : "error", KNotification::CloseOnTimeout, QCoreApplication::instance());
         n->setComponentName("kquickshare");
         n->setTitle("KQuickShare · " + device.name);
         n->setText(m_status->text().toHtmlEscaped());

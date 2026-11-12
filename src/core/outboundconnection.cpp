@@ -68,15 +68,13 @@ bool OutboundConnection::setFiles(const QStringList &paths, QString &error)
             error = tr("File is unavailable: %1").arg(path);
             return false;
         }
-        auto *file = new QFile(path, this);
-        if (!file->open(QIODevice::ReadOnly)) {
-            error = file->errorString();
-            return false;
-        }
+        // Opened only when its turn comes: one descriptor per attachment would
+        // exhaust the usual 1024 limit for large batches.
+        auto *file = new QFile(info.absoluteFilePath(), this);
         frames::FileMeta meta;
         meta.name = info.fileName();
         meta.mimeType = mime.mimeTypeForFile(info).name();
-        meta.size = file->size();
+        meta.size = info.size();
         do {
             meta.payloadId = payloadId();
         } while (ids.contains(meta.payloadId));
@@ -336,6 +334,10 @@ void OutboundConnection::pump()
         }
         auto &file = m_files[m_current];
         const auto &meta = file.meta;
+        if (!file.handle->isOpen() && !file.handle->open(QIODevice::ReadOnly)) {
+            complete(tr("Could not open file %1: %2").arg(meta.name, file.handle->errorString()));
+            return;
+        }
         const QByteArray body = file.handle->read(qMin<qint64>(65536, meta.size - file.offset));
         if (body.isEmpty() && file.offset < meta.size) {
             complete(tr("Could not read file: %1").arg(meta.name));
