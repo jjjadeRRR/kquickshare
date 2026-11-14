@@ -7,10 +7,13 @@
 #include "frames.h"
 
 #include <QHash>
+#include <QHostAddress>
 #include <QObject>
 #include <QPointer>
 
 class QTcpSocket;
+class QTcpServer;
+class InboundTransport;
 class QFile;
 class QTimer;
 
@@ -32,6 +35,7 @@ struct TransferRequest
     QString textTitle; // non-empty for URL/text transfers
     int textType = 0;
     qint64 totalBytes = 0;
+    bool supportsLanTrust = true;
 };
 
 class InboundConnection : public QObject
@@ -39,11 +43,18 @@ class InboundConnection : public QObject
     Q_OBJECT
 public:
     explicit InboundConnection(QTcpSocket *socket, QObject *parent = nullptr);
+    explicit InboundConnection(InboundTransport *transport, QObject *parent = nullptr);
     ~InboundConnection() override;
 
     QString remoteDeviceName() const
     {
         return m_deviceName;
+    }
+    // Offer an encrypted BLE connection a faster local-network transport.
+    void setLanUpgradeAddress(const QHostAddress &address, int timeoutMs = 15000)
+    {
+        m_upgradeAddress = address;
+        m_upgradeTimeoutMs = timeoutMs;
     }
 
 public slots:
@@ -103,14 +114,39 @@ private:
     void finishTransfer(const QString &error = {});
     void sendDisconnectionAndClose();
     void cleanupFiles(bool deletePartial);
+    void attachTransport(InboundTransport *transport);
+    void transportDisconnected();
+    void offerLanUpgrade();
+    void acceptUpgradeConnection();
+    void readUpgradeIntroduction();
+    void handleUpgradeEvent(int event);
+    void finishUpgrade();
+    void abandonUpgrade();
+    void presentTransferRequest();
+    void sendEncryptedOfflineFrameNow(const QByteArray &offlineFrame);
 
-    QTcpSocket *m_socket;
+    InboundTransport *m_transport;
+    QString m_peerAddress;
+    bool m_supportsLanTrust = true;
     State m_state = State::Initial;
     QByteArray m_readBuffer;
 
     // Remote device
     QString m_deviceName;
     DeviceType m_deviceType = DeviceType::Unknown;
+    QByteArray m_peerEndpointId;
+
+    enum class UpgradeState { None, Offered, Draining, ClosingBluetooth, Complete };
+    UpgradeState m_upgradeState = UpgradeState::None;
+    QHostAddress m_upgradeAddress;
+    int m_upgradeTimeoutMs = 15000;
+    QTcpServer *m_upgradeServer = nullptr;
+    QPointer<QTcpSocket> m_upgradeSocket;
+    QTimer *m_upgradeTimer = nullptr;
+    QByteArray m_upgradeReadBuffer;
+    QList<QByteArray> m_upgradeDeferredFrames;
+    bool m_upgradeSentSafe = false;
+    bool m_requestDeferred = false;
 
     // UKEY2 / crypto state
     crypto::EvpPkeyPtr m_keyPair{nullptr, &EVP_PKEY_free};

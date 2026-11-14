@@ -12,6 +12,7 @@ KDE Frameworks >= 6.0, OpenSSL >= 3.0 and a C++20 compiler.
 | Debian 13, Qt 6.8, KF 6.13 | Clean container build, GUI/core/installer tests and independent encrypted protocol peers |
 | Fedora 43 | Clean container build, GUI/core/installer tests, protocol peers and native RPM packaging |
 | Ubuntu 26.04 | CI build/test target; desktop/phone reports welcome |
+| Ubuntu 26.04, Pixel 11 Pro XL | Bluetooth receive and Bluetooth-to-LAN handoff tested with a small file |
 | openSUSE Tumbleweed / Leap 16 | Dependency plan provided; currently needs wider build and desktop verification |
 
 See [GitHub Actions](https://github.com/jjjadeRRR/kquickshare/actions) for the
@@ -46,8 +47,12 @@ third-party repositories or upgrades the desktop to satisfy dependencies.
 
 ## Network and firewall
 
-Both devices must share a LAN which allows multicast and connections between
-clients. The default receive port is **TCP 53318**; discovery uses **UDP 5353**.
+For LAN discovery both devices must share a LAN which allows multicast and
+connections between clients. The default receive port is **TCP 53318**;
+discovery uses **UDP 5353**. Incoming Bluetooth discovery additionally needs a
+powered BlueZ adapter capable of extended BLE advertising. It offers a separate
+temporary TCP port on the LAN for the encrypted handoff; a firewall blocking that
+port causes a fallback to slower Bluetooth transfer.
 The receive port can be changed in Settings; `0` chooses a random port. A busy
 configured port produces an error, rather than silently selecting another one.
 Sending connects to the port advertised by the phone, which may be dynamic.

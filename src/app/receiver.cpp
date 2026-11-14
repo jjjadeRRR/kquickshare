@@ -420,6 +420,7 @@ void Receiver::incoming(InboundConnection *conn, const TransferRequest &r)
     auto *cv = new QVBoxLayout(consent);
     cv->setContentsMargins(0, 0, 0, 0);
     t.remember = new QCheckBox(tr("Trust this device on my home network"));
+    t.remember->setVisible(r.supportsLanTrust);
     t.remember->setToolTip(tr("Automatic reception matches the name, type and IP address. The phone’s persistent key is not verified."));
     cv->addWidget(t.remember);
     auto *buttons = new QHBoxLayout;
@@ -459,7 +460,7 @@ void Receiver::incoming(InboundConnection *conn, const TransferRequest &r)
         it->progress->setValue(int(1000.0 * received / qMax(qint64(1), total)));
         it->status->setText(tr("Received %1 of %2").arg(sizeText(received), sizeText(total)));
     });
-    if (m_settings.contains("trusted/" + trustKey(r))) {
+    if (r.supportsLanTrust && m_settings.contains("trusted/" + trustKey(r))) {
         accept(conn);
         cancel->show();
         notify("receiving", tr("Receiving from «%1»").arg(r.deviceName), tr("Automatic reception · %1").arg(sizeText(r.totalBytes)));
@@ -475,6 +476,18 @@ void Receiver::incoming(InboundConnection *conn, const TransferRequest &r)
                 cancel->show();
             }
         });
+        if (r.supportsLanTrust) {
+            connect(n->addAction(tr("Trust and accept")), &KNotificationAction::activated, this, [this, safe, cancel] {
+                if (!safe)
+                    return;
+                auto it = m_active.find(safe.data());
+                if (it == m_active.end() || !it->remember)
+                    return;
+                it->remember->setChecked(true);
+                accept(safe);
+                cancel->show();
+            });
+        }
         connect(n->addAction(tr("Reject")), &KNotificationAction::activated, this, [safe] {
             if (safe)
                 safe->rejectTransfer();
@@ -487,7 +500,7 @@ void Receiver::accept(InboundConnection *conn)
     auto it = m_active.find(conn);
     if (it == m_active.end() || it->accepted)
         return;
-    if (it->remember->isChecked()) {
+    if (it->request.supportsLanTrust && it->remember->isChecked()) {
         m_settings.setValue("trusted/" + trustKey(it->request), it->request.deviceName + " · " + it->request.peerAddress);
         m_settings.sync();
         refreshTrusted();
