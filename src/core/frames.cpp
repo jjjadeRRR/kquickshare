@@ -76,6 +76,7 @@ bool parseOfflineFrame(const QByteArray &data, OfflineFrame &out)
             return false;
         if (!pb::fieldBytes(f, 6, out.endpointInfo))
             return false;
+        pb::fieldBytes(f, 1, out.endpointId);
         return true;
     }
     case OfflineFrameType::ConnectionResponse: {
@@ -137,6 +138,21 @@ bool parseOfflineFrame(const QByteArray &data, OfflineFrame &out)
         }
         return true;
     }
+    case OfflineFrameType::BandwidthUpgradeNegotiation: {
+        QByteArray raw;
+        QVector<pb::Field> fields;
+        uint64_t event = 0;
+        if (!pb::fieldBytes(v1, 5, raw) || !pb::parseMessage(raw, fields) || !pb::fieldVarint(fields, 1, event))
+            return false;
+        out.bandwidthEvent = int(event);
+        if (event == 4) {
+            QByteArray intro;
+            QVector<pb::Field> introFields;
+            if (!pb::fieldBytes(fields, 3, intro) || !pb::parseMessage(intro, introFields) || !pb::fieldBytes(introFields, 1, out.endpointId))
+                return false;
+        }
+        return true;
+    }
     default:
         return true;
     }
@@ -166,9 +182,38 @@ QByteArray buildKeepAliveOfflineFrame(bool ack)
 
 QByteArray buildDisconnectionOfflineFrame()
 {
-    pb::Writer disc; // empty DisconnectionFrame
+    // Explicitly mark this as an immediate disconnect. Nearby uses the same
+    // frame to release a paused channel during a bandwidth upgrade.
+    pb::Writer disc;
+    disc.varint(1, 0).varint(2, 0);
     pb::Writer v1;
     v1.varint(1, int(OfflineFrameType::Disconnection)).bytes(7, disc.data());
+    return offlineV1(v1);
+}
+
+QByteArray buildBandwidthUpgradeOffer(const QByteArray &ipv4, quint16 port)
+{
+    if (ipv4.size() != 4 || !port)
+        return {};
+    pb::Writer address;
+    address.bytes(1, ipv4).varint(2, port);
+    pb::Writer path;
+    path.varint(1, 5).bytes(3, address.data()).varint(9, 1); // WIFI_LAN, introduction ACK
+    pb::Writer upgrade;
+    upgrade.varint(1, 1).bytes(2, path.data());
+    pb::Writer v1;
+    v1.varint(1, int(OfflineFrameType::BandwidthUpgradeNegotiation)).bytes(5, upgrade.data());
+    return offlineV1(v1);
+}
+
+QByteArray buildBandwidthUpgradeEvent(int event)
+{
+    pb::Writer upgrade;
+    upgrade.varint(1, event);
+    if (event == 6)
+        upgrade.bytes(4, {}); // CLIENT_INTRODUCTION_ACK
+    pb::Writer v1;
+    v1.varint(1, int(OfflineFrameType::BandwidthUpgradeNegotiation)).bytes(5, upgrade.data());
     return offlineV1(v1);
 }
 

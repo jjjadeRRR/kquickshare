@@ -12,7 +12,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(-Wall -Wextra)
 endif()
 
-find_package(Qt6 6.8 REQUIRED COMPONENTS Core Network)
+find_package(Qt6 6.8 REQUIRED COMPONENTS Core Network DBus)
 find_package(OpenSSL 3.0 REQUIRED)
 
 add_library(kqscore STATIC
@@ -20,14 +20,22 @@ add_library(kqscore STATIC
     src/core/crypto.cpp
     src/core/endpointinfo.cpp
     src/core/frames.cpp
+    src/core/weave.cpp
+    src/core/bletransport.cpp
+    src/core/bletransport.h
+    src/core/bleadvertisement.cpp
+    src/core/bluetoothreceiver.cpp
+    src/core/bluetoothreceiver.h
     src/core/mdnsresponder.cpp
+    src/core/inboundtransport.cpp
+    src/core/inboundtransport.h
     src/core/inboundconnection.cpp
     src/core/devicediscovery.cpp
     src/core/outboundconnection.cpp
     src/core/nearbyserver.cpp
 )
 target_include_directories(kqscore PUBLIC src/core)
-target_link_libraries(kqscore PUBLIC Qt6::Core Qt6::Network OpenSSL::Crypto)
+target_link_libraries(kqscore PUBLIC Qt6::Core Qt6::Network Qt6::DBus OpenSSL::Crypto)
 
 add_executable(kquickshare-cli src/cli/main.cpp)
 target_link_libraries(kquickshare-cli PRIVATE kqscore)
@@ -49,6 +57,9 @@ if(BUILD_TESTING)
     if(Python3_Interpreter_FOUND)
         add_test(NAME installer-tests COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/installer_tests.py)
     endif()
+    # Manual hardware harness: Bluetooth-only discovery exercises LAN handoff.
+    add_executable(ble-test-receiver tests/ble_test_receiver.cpp)
+    target_link_libraries(ble-test-receiver PRIVATE kqscore)
 endif()
 if(BUILD_TESTING)
     find_package(Qt6 REQUIRED COMPONENTS Test)
@@ -56,6 +67,21 @@ if(BUILD_TESTING)
     target_link_libraries(core-tests PRIVATE kqscore Qt6::Test)
     add_test(NAME core-tests COMMAND core-tests)
     set_tests_properties(core-tests PROPERTIES TIMEOUT 30)
+    if(Python3_Interpreter_FOUND)
+        add_executable(upgrade-tests tests/upgrade_tests.cpp)
+        target_compile_definitions(upgrade-tests PRIVATE SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}" PYTHON_EXECUTABLE="${Python3_EXECUTABLE}")
+        target_link_libraries(upgrade-tests PRIVATE kqscore Qt6::Test)
+        add_test(NAME upgrade-tests COMMAND upgrade-tests)
+        set_tests_properties(upgrade-tests PROPERTIES TIMEOUT 30)
+    endif()
+    find_program(DBUS_RUN_SESSION dbus-run-session)
+    if(DBUS_RUN_SESSION)
+        add_executable(bluetooth-tests tests/bluetooth_tests.cpp)
+        target_link_libraries(bluetooth-tests PRIVATE kqscore Qt6::Test)
+        add_test(NAME bluetooth-tests COMMAND ${DBUS_RUN_SESSION} -- sh -c
+            "DBUS_SYSTEM_BUS_ADDRESS=\"$DBUS_SESSION_BUS_ADDRESS\" exec \"$1\"" -- $<TARGET_FILE:bluetooth-tests>)
+        set_tests_properties(bluetooth-tests PROPERTIES TIMEOUT 30)
+    endif()
 endif()
 if(BUILD_TESTING AND BUILD_GUI)
     add_executable(gui-tests tests/gui_tests.cpp src/app/receiver.cpp src/app/receiver.h src/app/senddialog.cpp src/app/senddialog.h)
@@ -72,7 +98,7 @@ if(BUILD_TESTING AND BUILD_GUI)
         "${GUI_TEST_DATA_DIR}/knotifications6/kquickshare.notifyrc" COPYONLY)
     if(DBUS_RUN_SESSION)
         add_test(NAME gui-tests COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:gui-tests>)
-        set_tests_properties(gui-tests PROPERTIES TIMEOUT 120 ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1;XDG_DATA_DIRS=${GUI_TEST_DATA_DIR}:/usr/local/share:/usr/share")
+        set_tests_properties(gui-tests PROPERTIES TIMEOUT 120 ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1;KQUICKSHARE_DISABLE_BLE=1;XDG_DATA_DIRS=${GUI_TEST_DATA_DIR}:/usr/local/share:/usr/share")
     endif()
 endif()
 add_executable(kquickshare-send src/cli/send.cpp)

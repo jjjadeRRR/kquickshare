@@ -12,6 +12,26 @@
 <context>
     <name>InboundConnection</name>
     <message>
+        <location filename="../src/core/inboundconnection.cpp" line="142"/>
+        <source>The network connection could not be completed</source>
+        <translation>Не удалось завершить подключение к локальной сети</translation>
+    </message>
+    <message>
+        <location filename="../src/core/inboundconnection.cpp" line="175"/>
+        <source>The network connection was interrupted</source>
+        <translation>Соединение с локальной сетью прервано</translation>
+    </message>
+    <message>
+        <location filename="../src/core/inboundconnection.cpp" line="779"/>
+        <source>Could not send data to the device</source>
+        <translation>Не удалось отправить данные устройству</translation>
+    </message>
+    <message>
+        <location filename="../src/core/inboundconnection.cpp" line="787"/>
+        <source>Too many pending messages during network upgrade</source>
+        <translation>Слишком много ожидающих сообщений при переходе на локальную сеть</translation>
+    </message>
+    <message>
         <location filename="../src/core/inboundconnection.cpp" line="79"/>
         <source>The device is not responding</source>
         <translation>Устройство не отвечает</translation>
@@ -423,6 +443,11 @@
 </context>
 <context>
     <name>Receiver</name>
+    <message>
+        <location filename="../src/app/receiver.cpp" line="480"/>
+        <source>Trust and accept</source>
+        <translation>Доверять и принять</translation>
+    </message>
     <message>
         <location filename="../src/app/receiver.cpp" line="95"/>
         <source>Ready to share

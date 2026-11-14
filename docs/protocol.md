@@ -3,7 +3,9 @@
 Документ описывает протокол так, как он реализован в KQuickShare. Источники:
 [NearDrop](https://github.com/grishka/NearDrop) (PROTOCOL.md + Swift-код) и
 [rquickshare](https://github.com/Martichou/rquickshare) (Rust-код). Описан только
-транспорт Wi-Fi LAN (mDNS + TCP); BLE/Wi-Fi Direct не используются.
+основной транспорт Wi-Fi LAN (mDNS + TCP). Для входящих соединений BlueZ BLE
+также предоставляет GATT/Weave и может перевести шифрованное соединение на TCP;
+Wi-Fi Direct не используется.
 
 ## Роли
 

@@ -10,7 +10,8 @@
 
 KQuickShare is a small C++ / Qt 6 application inspired by
 [NearDrop](https://github.com/grishka/NearDrop). It uses Android's built-in
-Quick Share over your local network; no companion Android app is needed.
+Quick Share over your local network and, for receiving, Bluetooth; no companion
+Android app is needed.
 
 > **This is a vibe-coded project.** It was developed with AI coding agents,
 > with hands-on testing by the project owner on Arch Linux / KDE and an Android phone.
@@ -94,19 +95,22 @@ headless installation and build dependencies.
 
 ## Receive from Android
 
-1. Connect the computer and phone to the same LAN. Ethernet on the PC is fine.
+1. Connect the computer and phone to the same LAN for the fastest transfers. Ethernet on the PC is fine.
 2. Start KQuickShare and choose Share → Quick Share on Android.
 3. Select the computer, compare the PIN and accept on the PC.
 4. Files appear in your Downloads folder (`xdg-user-dir DOWNLOAD`). Received text is also copied to the clipboard by default.
    Photos are saved as files. Links are never opened automatically.
 
 For automatic reception, check the trust option in the incoming transfer card
-**before** accepting. Remove a device from the Trusted devices tab to revoke it.
+**before** accepting, or choose **Trust and accept** in the notification.
+Remove a device from the Trusted devices tab to revoke it.
 
 **Trust limitation:** the allowlist currently matches the device's name, type
 and IPv4 address, rather than a persistent cryptographic identity. Another device
 on the LAN could imitate these values. Use automatic reception only on a LAN you
 trust; an address change requires approval again.
+Bluetooth-only transfers always require approval. When a transfer switches to
+LAN, the same name, type and IP-based trust option becomes available.
 
 ## Send to Android
 
@@ -116,11 +120,16 @@ Scan the displayed QR with the phone camera, open Quick Share, select the
 phone in the desktop dialog and send. Confirm reception on Android if requested.
 The receive screen in Files by Google is another discovery option.
 
-The transport is LAN-only. Bluetooth is not required; BLE activation, Wi-Fi
-Direct, internet transfer and Google-account contact discovery are not implemented.
+Sending from the computer uses LAN discovery. For receiving, a powered BlueZ
+adapter with extended BLE advertising lets Android discover the computer over
+Bluetooth. The receiver offers an encrypted LAN connection for the file data;
+if it cannot connect, the transfer continues over Bluetooth, which is slower.
+Bluetooth discovery can take several seconds. Wi-Fi Direct, internet transfer
+and Google-account contact discovery are not implemented.
 Wi-Fi client isolation, multicast filtering or a firewall can prevent discovery
 or connections. Discovery uses UDP 5353 and reception defaults to TCP 53318 (configurable in
-Settings). See the [firewall instructions](docs/COMPATIBILITY.md#network-and-firewall).
+Settings). A Bluetooth-to-LAN handoff also uses a temporary TCP port. See the
+[firewall instructions](docs/COMPATIBILITY.md#network-and-firewall).
 
 ## Received text
 

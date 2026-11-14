@@ -4,6 +4,9 @@
 #include "inboundconnection.h"
 #include "nearbyserver.h"
 #include "protobuf.h"
+#include "weave.h"
+#include "bleadvertisement.h"
+#include "bletransport.h"
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QtTest>
@@ -11,6 +14,124 @@ class CoreTests : public QObject
 {
     Q_OBJECT
 private slots:
+    void endpointStaysStableAcrossNetworkRestarts()
+    {
+        qputenv("KQUICKSHARE_DISABLE_BLE", "1");
+        NearbyServer server;
+        QSignalSpy started(&server, &NearbyServer::started);
+        QVERIFY(server.start(QStringLiteral("Stable identity test"), DeviceType::Laptop, 0));
+        QCOMPARE(started.size(), 1);
+        const QString endpoint = started.first().at(0).toString();
+        QVERIFY(server.start(QStringLiteral("Stable identity test"), DeviceType::Laptop, 0));
+        QCOMPARE(started.size(), 2);
+        QCOMPARE(started.last().at(0).toString(), endpoint);
+        server.stop();
+        qunsetenv("KQUICKSHARE_DISABLE_BLE");
+    }
+    void bandwidthUpgradeFrames()
+    {
+        const auto offer = frames::buildBandwidthUpgradeOffer(QByteArray::fromHex("c0a80184"), 12345);
+        QCOMPARE(offer, QByteArray::fromHex("0801121708042a130801120f08051a090a04c0a8018410b9604801"));
+        frames::OfflineFrame frame;
+        QVERIFY(frames::parseOfflineFrame(offer, frame));
+        QCOMPARE(frame.bandwidthEvent, 1);
+        const auto intro = pb::Writer().varint(1, 1).bytes(2, pb::Writer().varint(1, 4)
+            .bytes(5, pb::Writer().varint(1, 4).bytes(3, pb::Writer().bytes(1, "ABCD").data()).data()).data()).data();
+        QVERIFY(frames::parseOfflineFrame(intro, frame));
+        QCOMPARE(frame.bandwidthEvent, 4);
+        QCOMPARE(frame.endpointId, QByteArray("ABCD"));
+        QVERIFY(frames::buildBandwidthUpgradeOffer("bad", 123).isEmpty());
+        QVERIFY(frames::parseOfflineFrame(frames::buildBandwidthUpgradeEvent(6), frame));
+        QCOMPARE(frame.bandwidthEvent, 6);
+        QCOMPARE(frames::buildDisconnectionOfflineFrame(), QByteArray::fromHex("0801120808063a0408001000"));
+    }
+    void bleStreamReachesInboundProtocol()
+    {
+        auto *transport = new BleTransport(QStringLiteral("Bluetooth"), 20);
+        QSignalSpy packets(transport, &BleTransport::packetReady);
+        QVERIFY(transport->receivePacket(QByteArray::fromHex("80000100010014")));
+        QCOMPARE(packets.count(), 1);
+        QCOMPARE(packets.takeFirst().at(0).toByteArray(), QByteArray::fromHex("8100010014"));
+        QVERIFY(!transport->supportsLanTrust());
+        auto *connection = new InboundConnection(transport);
+        Weave client;
+        QByteArray reply, ignored;
+        QCOMPARE(client.receive(QByteArray::fromHex("80000100010014"), reply, ignored), Weave::Result::Connected);
+        const QByteArray request = pb::Writer().varint(1, 1)
+            .bytes(2, pb::Writer().varint(1, 1).bytes(2, pb::Writer().bytes(6, EndpointInfo::serialize("Bluetooth phone", DeviceType::Phone)).data()).data()).data();
+        const auto incoming = client.encode(frames::lengthPrefixed(request));
+        QVERIFY(incoming.size() > 1);
+        for (const auto &packet : incoming)
+            QVERIFY(transport->receivePacket(packet));
+        QCOMPARE(connection->remoteDeviceName(), QString("Bluetooth phone"));
+        delete connection;
+    }
+    void bleStreamDrainsBeforeClosing()
+    {
+        BleTransport transport(QStringLiteral("Bluetooth"));
+        QVERIFY(transport.receivePacket(QByteArray::fromHex("80000100010014")));
+        QSignalSpy packets(&transport, &BleTransport::packetReady);
+        QSignalSpy disconnected(&transport, &BleTransport::disconnected);
+        const QByteArray data = frames::lengthPrefixed(QByteArray(100, 'x'));
+        QCOMPARE(transport.write(data), qint64(data.size()));
+        transport.disconnectFromPeer();
+        QCOMPARE(disconnected.count(), 0);
+        QTRY_COMPARE(disconnected.count(), 1);
+        QVERIFY(packets.size() > 1);
+        QVERIFY(quint8(packets.last().at(0).toByteArray()[0]) & 0x04);
+    }
+    void bleAdvertisementFormat()
+    {
+        QByteArray info = QByteArray::fromHex("06") + QByteArray(16, '\0') + QByteArray::fromHex("0454657374");
+        QCOMPARE(bleAdvertisement("ABCD", info, QByteArray::fromHex("1234")),
+            QByteArray::fromHex("48fc9f5e0000002723fc9f5e41424344162600000000000000000000000000000000045465737400000000000000001234"));
+        const auto longInfo = EndpointInfo::serialize(QString::fromUtf8("😀").repeated(100), DeviceType::Laptop);
+        const auto result = bleAdvertisement("ABCD", longInfo, QByteArray(2, '\0'));
+        const int infoSize = quint8(result[16]);
+        QVERIFY(infoSize <= 131);
+        EndpointInfo decoded;
+        QVERIFY(EndpointInfo::parse(result.mid(17, infoSize), decoded));
+        QVERIFY(!decoded.name.contains(QChar::ReplacementCharacter));
+        QVERIFY(bleAdvertisement("bad", info, QByteArray(2, '\0')).isEmpty());
+    }
+    void weaveTransport()
+    {
+        Weave weave(509);
+        QByteArray reply, data;
+        using Result = Weave::Result;
+        QCOMPARE(weave.receive(QByteArray::fromHex("800001000101fd"), reply, data), Result::Connected);
+        QCOMPARE(reply, QByteArray::fromHex("81000101fd"));
+        QCOMPARE(weave.receive(QByteArray::fromHex("0c0000000801"), reply, data), Result::Pending);
+        const QByteArray stream = frames::lengthPrefixed(QByteArray(1200, 'x'));
+        const auto packets = weave.encode(stream);
+        QCOMPARE(packets.size(), 3);
+        QCOMPARE(quint8(packets[0][0]), quint8(0x18));
+        QCOMPARE(quint8(packets[1][0]), quint8(0x20));
+        QCOMPARE(quint8(packets[2][0]), quint8(0x34));
+        QCOMPARE(weave.receive(packets[0], reply, data), Result::Pending);
+        QCOMPARE(weave.receive(packets[1], reply, data), Result::Pending);
+        QCOMPARE(weave.receive(packets[2], reply, data), Result::Data);
+        QCOMPARE(data, stream);
+        QCOMPARE(weave.receive(QByteArray::fromHex("0c0000000802"), reply, data), Result::Disconnected);
+    }
+    void weaveRejectsMalformedPackets()
+    {
+        using Result = Weave::Result;
+        QByteArray reply, data;
+        Weave weave;
+        QCOMPARE(weave.receive(QByteArray::fromHex("800002000201fd"), reply, data), Result::Invalid);
+        QCOMPARE(weave.receive(QByteArray::fromHex("80000100010013"), reply, data), Result::Invalid);
+        QCOMPARE(weave.receive(QByteArray::fromHex("80000100010014"), reply, data), Result::Connected);
+        QCOMPARE(reply, QByteArray::fromHex("8100010014"));
+        QCOMPARE(weave.receive(QByteArray::fromHex("0401"), reply, data), Result::Invalid);
+        QCOMPARE(weave.receive(QByteArray::fromHex("0c01020300"), reply, data), Result::Invalid);
+        QCOMPARE(weave.receive(QByteArray(21, 'x'), reply, data), Result::Invalid);
+        Weave extended;
+        QCOMPARE(extended.receive(QByteArray::fromHex("800001000101fdabcd"), reply, data), Result::Connected);
+        QCOMPARE(reply, QByteArray::fromHex("8100010014"));
+        QCOMPARE(extended.receive(QByteArray::fromHex("08fc9f5e00"), reply, data), Result::Pending);
+        QCOMPARE(extended.receive(QByteArray::fromHex("0801"), reply, data), Result::Invalid);
+    }
     void bufferedHandshake()
     {
         QTcpServer server;

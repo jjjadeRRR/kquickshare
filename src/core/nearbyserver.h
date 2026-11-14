@@ -9,6 +9,8 @@
 class QTcpServer;
 class MdnsResponder;
 class InboundConnection;
+class InboundTransport;
+class BluetoothReceiver;
 struct TransferRequest;
 
 class NearbyServer : public QObject
@@ -37,6 +39,12 @@ private slots:
     void onNewConnection();
 
 private:
+    void addConnection(InboundTransport *transport);
+    QString refreshDiscovery();
     QTcpServer *m_tcpServer = nullptr;
     MdnsResponder *m_mdns = nullptr;
+    BluetoothReceiver *m_bluetooth = nullptr;
+    QString m_deviceName;
+    DeviceType m_deviceType = DeviceType::Laptop;
+    QByteArray m_endpointId;
 };

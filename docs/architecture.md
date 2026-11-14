@@ -10,6 +10,8 @@ Qt Network и OpenSSL 3, интерфейс — Qt Widgets, KStatusNotifierItem,
 - `src/core/crypto.*`: P-256, ECDH, HKDF, AES-CBC, HMAC, подписи QR и AES-GCM.
 - `src/core/frames.*`: разбор и создание кадров Nearby / UKEY2 / Sharing.
 - `src/core/mdnsresponder.*`: входящий mDNS-анонс в LAN, без avahi-daemon.
+- `src/core/bluetoothreceiver.*`, `bletransport.*`, `weave.*`: приём через BlueZ,
+  BLE GATT и транспорт Weave; при возможности переход на шифрованный TCP.
 - `src/core/devicediscovery.*`: обнаружение телефонов, включая QR-объявления.
 - `src/core/inboundconnection.*`: конечный автомат одного входящего соединения.
 - `src/core/outboundconnection.*`: исходящая передача файлов или текста.
@@ -23,7 +25,7 @@ Qt Network и OpenSSL 3, интерфейс — Qt Widgets, KStatusNotifierItem,
 
 ## Приём
 
-`QTcpServer` создаёт `InboundConnection` для каждого подключения. После
+`QTcpServer` или BLE GATT создаёт `InboundConnection` для каждого подключения. После
 CONNECTION_REQUEST, UKEY2 и CONNECTION_RESPONSE начинается шифрованный обмен
 PAIRED_KEY_ENCRYPTION / PAIRED_KEY_RESULT. INTRODUCTION сообщает метаданные,
 GUI предлагает принять передачу. FILE-чанки записываются во временные `.part`.
@@ -57,10 +59,14 @@ Dolphin передаёт пути аргументами запуска. Кно�
 
 ## Ограничения
 
-Транспорт — только LAN (mDNS и TCP), без BLE, Wi-Fi Direct и серверов Google.
+Отправка использует LAN. Для приёма доступно обнаружение через BlueZ BLE и
+переход на LAN с резервной передачей через BLE; одновременно поддерживается одна
+BLE-сессия. Wi-Fi Direct и серверы Google не используются.
 Постоянное криптографическое спаривание не реализовано. GUI-список доверия сверяет
 имя, тип и IPv4-адрес; это удобство для доверенной LAN, а не защита от другого
 участника этой сети, способного подделать такие значения.
+Для соединений только через BLE автоматическое доверие отключено. После перехода
+на LAN можно использовать тот же список доверия по имени, типу и IP-адресу.
 
 Ядро работает событийно в потоке Qt. Файловый ввод-вывод синхронный; длительные
 операции диска могут задерживать интерфейс. Входящие подключения ограничены,

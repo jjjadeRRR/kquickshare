@@ -1,4 +1,5 @@
 #include "inboundconnection.h"
+#include "inboundtransport.h"
 
 #include <QDir>
 #include <QFile>
@@ -6,6 +7,7 @@
 #include <QRandomGenerator>
 #include <QSet>
 #include <QStorageInfo>
+#include <QTcpServer>
 #include <QTcpSocket>
 #include <QTemporaryFile>
 #include <QTimer>
@@ -67,12 +69,16 @@ QString uniqueDestination(const QString &dir, const QString &fileName)
 } // namespace
 
 InboundConnection::InboundConnection(QTcpSocket *socket, QObject *parent)
+    : InboundConnection(new TcpInboundTransport(socket), parent)
+{ }
+
+InboundConnection::InboundConnection(InboundTransport *transport, QObject *parent)
     : QObject(parent)
-    , m_socket(socket)
+    , m_transport(transport)
+    , m_peerAddress(transport->peerAddress())
+    , m_supportsLanTrust(transport->supportsLanTrust())
 {
-    m_socket->setParent(this);
-    m_socket->setSocketOption(QAbstractSocket::LowDelayOption, 1);
-    m_socket->setReadBufferSize(kMaxFrameLength + 4);
+    attachTransport(m_transport);
     m_idleTimer = new QTimer(this);
     m_idleTimer->setInterval(180000);
     connect(m_idleTimer, &QTimer::timeout, this, [this] {
@@ -86,38 +92,228 @@ InboundConnection::InboundConnection(QTcpSocket *socket, QObject *parent)
             sendEncryptedOfflineFrame(frames::buildKeepAliveOfflineFrame(false));
     });
     m_keepAliveTimer->start();
-    connect(m_socket, &QTcpSocket::readyRead, this, &InboundConnection::onReadyRead);
-    connect(m_socket, &QTcpSocket::disconnected, this, [this] {
-        if (m_state != State::Done) {
-            qWarning("Quick Share inbound disconnected: peer=%s state=%d", qPrintable(m_socket->peerAddress().toString()), int(m_state));
-            m_error = tr("Connection interrupted");
-            m_state = State::Done;
-            cleanupFiles(true);
-        }
-        emit finished(this, m_savedFiles, m_error);
-        deleteLater();
-    });
     // QTcpServer can hand us a socket whose readyRead was already emitted.
     // Defer processing so the owner can connect the transfer signals first.
     QTimer::singleShot(0, this, &InboundConnection::onReadyRead);
 }
 
+void InboundConnection::attachTransport(InboundTransport *transport)
+{
+    transport->setParent(this);
+    connect(transport, &InboundTransport::readyRead, this, &InboundConnection::onReadyRead);
+    connect(transport, &InboundTransport::disconnected, this, &InboundConnection::transportDisconnected);
+}
+
+void InboundConnection::transportDisconnected()
+{
+    if (m_upgradeState == UpgradeState::ClosingBluetooth && m_state != State::Done) {
+        // Let BlueZ flush the final notification before using the new channel.
+        QTimer::singleShot(200, this, &InboundConnection::finishUpgrade);
+        return;
+    }
+    if (m_state != State::Done) {
+        qWarning("Quick Share inbound disconnected: peer=%s state=%d", qPrintable(m_transport->peerAddress()), int(m_state));
+        m_error = tr("Connection interrupted");
+        m_state = State::Done;
+        cleanupFiles(true);
+    }
+    emit finished(this, m_savedFiles, m_error);
+    deleteLater();
+}
+
+void InboundConnection::offerLanUpgrade()
+{
+    m_upgradeServer = new QTcpServer(this);
+    m_upgradeServer->setMaxPendingConnections(4);
+    if (!m_upgradeServer->listen(m_upgradeAddress, 0)) {
+        qInfo("Bluetooth receiver: LAN upgrade listener unavailable");
+        m_upgradeServer->deleteLater();
+        m_upgradeServer = nullptr;
+        return;
+    }
+    connect(m_upgradeServer, &QTcpServer::newConnection, this, &InboundConnection::acceptUpgradeConnection);
+    m_upgradeTimer = new QTimer(this);
+    m_upgradeTimer->setSingleShot(true);
+    connect(m_upgradeTimer, &QTimer::timeout, this, [this] {
+        if (m_upgradeState == UpgradeState::Offered) {
+            qInfo("Bluetooth receiver: LAN upgrade unavailable, continuing over Bluetooth");
+            abandonUpgrade();
+        } else if (m_upgradeState == UpgradeState::Draining || m_upgradeState == UpgradeState::ClosingBluetooth) {
+            finishWithError(tr("The network connection could not be completed"));
+        }
+    });
+    const quint32 ip = m_upgradeAddress.toIPv4Address();
+    QByteArray ipBytes;
+    ipBytes.append(char(ip >> 24)).append(char(ip >> 16)).append(char(ip >> 8)).append(char(ip));
+    m_upgradeState = UpgradeState::Offered;
+    m_upgradeTimer->start(m_upgradeTimeoutMs);
+    sendEncryptedOfflineFrame(frames::buildBandwidthUpgradeOffer(ipBytes, m_upgradeServer->serverPort()));
+    qInfo("Bluetooth receiver: offered encrypted LAN upgrade");
+}
+
+void InboundConnection::acceptUpgradeConnection()
+{
+    while (m_upgradeServer && m_upgradeServer->hasPendingConnections()) {
+        auto *socket = m_upgradeServer->nextPendingConnection();
+        if (m_upgradeState != UpgradeState::Offered || m_upgradeSocket) {
+            socket->abort();
+            socket->deleteLater();
+            continue;
+        }
+        socket->setParent(this);
+        socket->setReadBufferSize(frames::kMaxFrameLength + 4);
+        m_upgradeSocket = socket;
+        m_upgradeReadBuffer.clear();
+        connect(socket, &QTcpSocket::readyRead, this, &InboundConnection::readUpgradeIntroduction);
+        connect(socket, &QTcpSocket::disconnected, this, [this, socket] {
+            if (m_upgradeSocket != socket)
+                return;
+            m_upgradeSocket = nullptr;
+            socket->deleteLater();
+            m_upgradeReadBuffer.clear();
+            if (m_upgradeState == UpgradeState::Draining || m_upgradeState == UpgradeState::ClosingBluetooth)
+                finishWithError(tr("The network connection was interrupted"));
+        });
+        QTimer::singleShot(0, this, &InboundConnection::readUpgradeIntroduction);
+    }
+}
+
+void InboundConnection::readUpgradeIntroduction()
+{
+    if (m_upgradeState != UpgradeState::Offered || !m_upgradeSocket)
+        return;
+    m_upgradeReadBuffer += m_upgradeSocket->readAll();
+    if (m_upgradeReadBuffer.size() > 4096) {
+        m_upgradeSocket->abort();
+        return;
+    }
+    QByteArray intro;
+    const auto result = frames::takeFrame(m_upgradeReadBuffer, intro);
+    if (result == frames::FrameRead::Incomplete)
+        return;
+    frames::OfflineFrame frame;
+    if (result == frames::FrameRead::Invalid || !frames::parseOfflineFrame(intro, frame)
+        || frame.type != frames::OfflineFrameType::BandwidthUpgradeNegotiation || frame.bandwidthEvent != 4 || frame.endpointId != m_peerEndpointId) {
+        m_upgradeSocket->abort();
+        return;
+    }
+    const QByteArray ack = frames::lengthPrefixed(frames::buildBandwidthUpgradeEvent(6));
+    if (m_upgradeSocket->write(ack) != ack.size()) {
+        m_upgradeSocket->abort();
+        return;
+    }
+    m_upgradeSocket->flush();
+    m_upgradeServer->close();
+    disconnect(m_upgradeSocket.data(), &QTcpSocket::readyRead, this, &InboundConnection::readUpgradeIntroduction);
+    m_upgradeState = UpgradeState::Draining;
+    m_upgradeTimer->start(8000);
+    sendEncryptedOfflineFrameNow(frames::buildBandwidthUpgradeEvent(2)); // LAST_WRITE_TO_PRIOR_CHANNEL
+    qInfo("Bluetooth receiver: LAN connected, negotiating transport switch");
+}
+
+void InboundConnection::handleUpgradeEvent(int event)
+{
+    if (m_upgradeState == UpgradeState::Offered && event == 5) {
+        abandonUpgrade();
+        return;
+    }
+    if (m_upgradeState != UpgradeState::Draining)
+        return;
+    if (event == 2 && !m_upgradeSentSafe) {
+        m_upgradeSentSafe = true;
+        sendEncryptedOfflineFrameNow(frames::buildBandwidthUpgradeEvent(3)); // SAFE_TO_CLOSE_PRIOR_CHANNEL
+    } else if (event == 3 && m_upgradeSentSafe) {
+        m_upgradeState = UpgradeState::ClosingBluetooth;
+        sendRawFrame(frames::buildDisconnectionOfflineFrame()); // plaintext on the old channel
+        m_transport->disconnectFromPeer();
+    }
+}
+
+void InboundConnection::finishUpgrade()
+{
+    if (m_state == State::Done || m_upgradeState != UpgradeState::ClosingBluetooth)
+        return;
+    if (!m_upgradeSocket || m_upgradeSocket->state() != QAbstractSocket::ConnectedState || !m_readBuffer.isEmpty()) {
+        finishWithError(tr("The network connection could not be completed"));
+        return;
+    }
+    m_upgradeTimer->stop();
+    auto *socket = m_upgradeSocket.data();
+    m_peerAddress = socket->peerAddress().toString();
+    m_supportsLanTrust = true;
+    m_upgradeSocket = nullptr;
+    disconnect(socket, nullptr, this, nullptr);
+    disconnect(m_transport, nullptr, this, nullptr);
+    m_transport->deleteLater();
+    m_transport = new TcpInboundTransport(socket);
+    attachTransport(m_transport);
+    m_upgradeState = UpgradeState::Complete;
+    if (m_requestDeferred) {
+        m_pendingRequest.peerAddress = m_peerAddress;
+        m_pendingRequest.supportsLanTrust = true;
+    }
+    m_readBuffer = std::move(m_upgradeReadBuffer);
+    const auto queued = std::move(m_upgradeDeferredFrames);
+    m_upgradeDeferredFrames.clear();
+    for (const auto &frame : queued)
+        sendEncryptedOfflineFrame(frame);
+    qInfo("Bluetooth receiver: transfer upgraded to LAN");
+    if (m_requestDeferred)
+        presentTransferRequest();
+    onReadyRead();
+}
+
+void InboundConnection::abandonUpgrade()
+{
+    if (m_upgradeTimer)
+        m_upgradeTimer->stop();
+    if (m_upgradeServer)
+        m_upgradeServer->close();
+    if (m_upgradeSocket) {
+        auto *socket = m_upgradeSocket.data();
+        m_upgradeSocket = nullptr;
+        disconnect(socket, nullptr, this, nullptr);
+        socket->abort();
+        socket->deleteLater();
+    }
+    m_upgradeReadBuffer.clear();
+    m_upgradeState = UpgradeState::None;
+    if (m_requestDeferred)
+        presentTransferRequest();
+}
+
+void InboundConnection::presentTransferRequest()
+{
+    if (m_state != State::WaitingForUserConsent || m_consentTimer)
+        return;
+    m_requestDeferred = false;
+    m_consentTimer = new QTimer(this);
+    m_consentTimer->setSingleShot(true);
+    m_consentTimer->setInterval(kConsentTimeoutMs);
+    connect(m_consentTimer, &QTimer::timeout, this, [this] {
+        sendSharingFrame(frames::buildSharingResponseFrame(5)); // TIMED_OUT
+        finishWithError(tr("Timed out waiting for approval"));
+    });
+    m_consentTimer->start();
+    emit transferRequested(this, m_pendingRequest);
+}
+
 InboundConnection::~InboundConnection()
 {
     // Closing emits disconnected(); its handler must not run on a half-destroyed object.
-    disconnect(m_socket, nullptr, this, nullptr);
+    disconnect(m_transport, nullptr, this, nullptr);
     cleanupFiles(true);
-    m_socket->close();
+    m_transport->abort();
 }
 
 void InboundConnection::onReadyRead()
 {
     if (m_state == State::Done) {
-        m_socket->readAll();
+        m_transport->readAll();
         return;
     }
     m_idleTimer->start();
-    m_readBuffer.append(m_socket->readAll());
+    m_readBuffer.append(m_transport->readAll());
     QByteArray frame;
     for (;;) {
         switch (frames::takeFrame(m_readBuffer, frame)) {
@@ -170,6 +366,7 @@ void InboundConnection::processConnectionRequest(const QByteArray &frameData)
     }
     m_deviceName = info.name.isEmpty() ? QStringLiteral("Android") : info.name;
     m_deviceType = info.deviceType;
+    m_peerEndpointId = frame.endpointId;
     m_state = State::ReceivedConnectionRequest;
 }
 
@@ -270,6 +467,8 @@ void InboundConnection::processConnectionResponse(const QByteArray &frameData)
     // The server speaks first in the payload layer: paired key encryption.
     sendSharingFrame(frames::buildPairedKeyEncryptionFrame());
     m_state = State::SentConnectionResponse;
+    if (!m_supportsLanTrust && !m_upgradeAddress.isNull() && m_peerEndpointId.size() == 4)
+        offerLanUpgrade();
 }
 
 void InboundConnection::processSecureMessage(const QByteArray &frameData)
@@ -292,6 +491,9 @@ void InboundConnection::processSecureMessage(const QByteArray &frameData)
     case frames::OfflineFrameType::KeepAlive:
         if (!frame.keepAliveAck)
             sendKeepAliveAck();
+        break;
+    case frames::OfflineFrameType::BandwidthUpgradeNegotiation:
+        handleUpgradeEvent(frame.bandwidthEvent);
         break;
     case frames::OfflineFrameType::Disconnection:
         finishWithError(tr("The remote device disconnected"));
@@ -392,7 +594,8 @@ void InboundConnection::processSharingFrame(const QByteArray &data)
         }
         TransferRequest request;
         request.deviceName = m_deviceName;
-        request.peerAddress = m_socket->peerAddress().toString();
+        request.peerAddress = m_peerAddress;
+        request.supportsLanTrust = m_supportsLanTrust;
         request.deviceType = m_deviceType;
         request.pinCode = m_pinCode;
         if (!frame.files.isEmpty() && frame.texts.isEmpty()) {
@@ -429,15 +632,10 @@ void InboundConnection::processSharingFrame(const QByteArray &data)
         }
         m_pendingRequest = request;
         m_state = State::WaitingForUserConsent;
-        m_consentTimer = new QTimer(this);
-        m_consentTimer->setSingleShot(true);
-        m_consentTimer->setInterval(kConsentTimeoutMs);
-        connect(m_consentTimer, &QTimer::timeout, this, [this] {
-            sendSharingFrame(frames::buildSharingResponseFrame(5)); // TIMED_OUT
-            finishWithError(tr("Timed out waiting for approval"));
-        });
-        m_consentTimer->start();
-        emit transferRequested(this, request);
+        if (m_upgradeState == UpgradeState::Offered || m_upgradeState == UpgradeState::Draining || m_upgradeState == UpgradeState::ClosingBluetooth)
+            m_requestDeferred = true;
+        else
+            presentTransferRequest();
         break;
     }
     default:
@@ -581,10 +779,27 @@ void InboundConnection::cancelTransfer()
 
 void InboundConnection::sendRawFrame(const QByteArray &frame)
 {
-    m_socket->write(frames::lengthPrefixed(frame));
+    const QByteArray data = frames::lengthPrefixed(frame);
+    if (m_transport->write(data) != data.size() && m_state != State::Done) {
+        // Defer the failure: callers may still be updating the protocol state.
+        QTimer::singleShot(0, this, [this] { finishWithError(tr("Could not send data to the device")); });
+    }
 }
 
 void InboundConnection::sendEncryptedOfflineFrame(const QByteArray &offlineFrame)
+{
+    if (m_upgradeState == UpgradeState::Draining || m_upgradeState == UpgradeState::ClosingBluetooth) {
+        if (m_upgradeDeferredFrames.size() >= 64) {
+            finishWithError(tr("Too many pending messages during network upgrade"));
+            return;
+        }
+        m_upgradeDeferredFrames.append(offlineFrame);
+        return;
+    }
+    sendEncryptedOfflineFrameNow(offlineFrame);
+}
+
+void InboundConnection::sendEncryptedOfflineFrameNow(const QByteArray &offlineFrame)
 {
     ++m_serverSeq;
     sendRawFrame(frames::encryptOfflineFrame(offlineFrame, m_serverSeq, m_encryptKey, m_sendHmacKey));
@@ -613,8 +828,7 @@ void InboundConnection::sendDisconnectionAndClose()
         sendEncryptedOfflineFrame(frame);
     else
         sendRawFrame(frame);
-    m_socket->flush();
-    m_socket->disconnectFromHost();
+    m_transport->disconnectFromPeer();
 }
 
 void InboundConnection::finishWithError(const QString &error)
@@ -627,22 +841,32 @@ void InboundConnection::finishTransfer(const QString &error)
     if (m_state == State::Done)
         return;
     if (!error.isEmpty())
-        qWarning("Quick Share inbound error: peer=%s state=%d error=%s", qPrintable(m_socket->peerAddress().toString()), int(m_state), qPrintable(error));
+        qWarning("Quick Share inbound error: peer=%s state=%d error=%s", qPrintable(m_transport->peerAddress()), int(m_state), qPrintable(error));
     m_error = error;
     m_state = State::Done;
     m_idleTimer->stop();
     m_keepAliveTimer->stop();
+    if (m_upgradeTimer)
+        m_upgradeTimer->stop();
+    if (m_upgradeServer)
+        m_upgradeServer->close();
+    if (m_upgradeSocket) {
+        auto *socket = m_upgradeSocket.data();
+        m_upgradeSocket = nullptr;
+        disconnect(socket, nullptr, this, nullptr);
+        socket->abort();
+        socket->deleteLater();
+    }
     cleanupFiles(true);
     // finished permits consumers (including --once) to quit/delete us. Emit it
     // from disconnected, after Qt has drained the final protocol frames.
     if (m_encryptionDone)
         sendDisconnectionAndClose();
     else
-        m_socket->disconnectFromHost();
+        m_transport->disconnectFromPeer();
     // A stalled peer must not hold a connection slot indefinitely.
     QTimer::singleShot(5000, this, [this] {
-        if (m_socket->state() != QAbstractSocket::UnconnectedState)
-            m_socket->abort();
+        m_transport->abort();
     });
 }
 

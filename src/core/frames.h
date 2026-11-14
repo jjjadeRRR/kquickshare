@@ -63,6 +63,8 @@ struct OfflineFrame
 {
     OfflineFrameType type = OfflineFrameType::Unknown;
     QByteArray endpointInfo; // ConnectionRequest
+    QByteArray endpointId; // ConnectionRequest or bandwidth-upgrade client introduction
+    int bandwidthEvent = 0;
     PayloadHeader payloadHeader;
     PayloadChunk payloadChunk;
     bool hasPayloadChunk = false;
@@ -76,6 +78,8 @@ QByteArray buildPayloadTransfer(const PayloadHeader &header, const PayloadChunk 
 QByteArray buildConnectionResponseAccept();
 QByteArray buildKeepAliveOfflineFrame(bool ack);
 QByteArray buildDisconnectionOfflineFrame();
+QByteArray buildBandwidthUpgradeOffer(const QByteArray &ipv4, quint16 port);
+QByteArray buildBandwidthUpgradeEvent(int event);
 // Two-frames-per-message payload, mirroring Android: data frame + empty LAST_CHUNK frame.
 QVector<QByteArray> buildBytesPayloadTransfer(qint64 id, const QByteArray &body);
 

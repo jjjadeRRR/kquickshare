@@ -13,8 +13,9 @@ list of what has actually been tested. Real-device testing so far is mainly on
 Arch with a Pixel 7 Pro; reports from other systems are welcome.
 
 This is an AI-assisted/vibe-coded project, inspired by NearDrop, and an independent
-community project. It uses the local network; Wi-Fi Direct, BLE activation and
-Google-account contact discovery are not implemented. The optional clipboard-history
+community project. It uses the local network and supports Bluetooth discovery for
+incoming transfers; Wi-Fi Direct and Google-account contact discovery are not
+implemented. The optional clipboard-history
 button is experimental and specific to Plasma 6.8; normal transfers do not need it.
 
 Source, installation, screenshots and limitations:
@@ -33,8 +34,8 @@ https://github.com/jjjadeRRR/kquickshare
 и Pixel 7 Pro; буду рад отзывам с других дистрибутивов.
 
 Это вайбкод-проект, сделанный с помощью ИИ и вдохновлённый NearDrop.
-Он работает по локальной сети; Wi-Fi Direct, BLE-активации и обнаружения через
-аккаунт Google нет. Дополнительная кнопка в истории буфера экспериментальная
+Он работает по локальной сети и поддерживает обнаружение входящих передач через
+Bluetooth; Wi-Fi Direct и обнаружения через аккаунт Google нет. Дополнительная кнопка в истории буфера экспериментальная
 и рассчитана на Plasma 6.8; обычная передача файлов от неё не зависит.
 
 Исходники, установка, скриншоты и ограничения:

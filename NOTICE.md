@@ -24,6 +24,8 @@ system plugin. The overlay is not enabled by the package installation.
 NearDrop by Grishka: https://github.com/grishka/NearDrop (Unlicense).
 rquickshare by Martichou and contributors:
 https://github.com/Martichou/rquickshare (GPL-3.0).
+The BLE receiver prototype by martinalderson and contributors:
+https://github.com/martinalderson/rquickshare/tree/feat/ble-receiver-connect-back (GPL-3.0).
 
 These projects informed protocol research. KQuickShare uses its own C++ transport
 implementation, rather than bundling their application binaries or source trees.

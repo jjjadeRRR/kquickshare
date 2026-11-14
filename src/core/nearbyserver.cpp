@@ -1,6 +1,9 @@
 #include "nearbyserver.h"
 
 #include "inboundconnection.h"
+#include "inboundtransport.h"
+#include "bletransport.h"
+#include "bluetoothreceiver.h"
 #include "mdnsresponder.h"
 
 #include <QHostInfo>
@@ -36,6 +39,7 @@ QString sanitizeHostLabel(const QString &hostName)
 
 NearbyServer::NearbyServer(QObject *parent)
     : QObject(parent)
+    , m_endpointId(generateEndpointId())
 { }
 
 NearbyServer::~NearbyServer()
@@ -53,11 +57,30 @@ bool NearbyServer::start(const QString &deviceName, DeviceType deviceType, quint
         stop();
         return false;
     }
-    const quint16 port = m_tcpServer->serverPort();
     connect(m_tcpServer, &QTcpServer::newConnection, this, &NearbyServer::onNewConnection);
+    m_deviceName = deviceName;
+    m_deviceType = deviceType;
+    const QString instanceName = refreshDiscovery();
+    emit started(instanceName, m_tcpServer->serverPort());
+    return true;
+}
+
+QString NearbyServer::refreshDiscovery()
+{
+    if (!m_tcpServer || !m_tcpServer->isListening())
+        return {};
+    if (m_bluetooth)
+        disconnect(m_bluetooth, nullptr, this, nullptr);
+    delete m_bluetooth;
+    m_bluetooth = nullptr;
+    if (m_mdns) {
+        m_mdns->stop();
+        m_mdns->deleteLater();
+        m_mdns = nullptr;
+    }
 
     // Service instance name: base64url(0x23 | endpointId | 0xFC 0x9F 0x5E | 0x00 0x00)
-    const QByteArray endpointId = generateEndpointId();
+    const QByteArray endpointId = m_endpointId;
     QByteArray nameBytes;
     nameBytes.append(char(0x23));
     nameBytes.append(endpointId);
@@ -65,21 +88,21 @@ bool NearbyServer::start(const QString &deviceName, DeviceType deviceType, quint
     nameBytes.append(char(0x00)).append(char(0x00));
     const QByteArray instanceName = base64UrlEncode(nameBytes);
 
-    const QByteArray endpointInfo = base64UrlEncode(EndpointInfo::serialize(deviceName, deviceType));
+    const QByteArray rawEndpointInfo = EndpointInfo::serialize(m_deviceName, m_deviceType);
+    const QByteArray endpointInfo = base64UrlEncode(rawEndpointInfo);
     // Use our own host label: answering for the machine's "<hostname>.local"
     // with cache-flush set conflicts with avahi-daemon on multi-homed hosts.
     const QString hostName
         = sanitizeHostLabel(QHostInfo::localHostName()) + QStringLiteral("-quickshare-") + QString::fromLatin1(endpointId).toLower() + QStringLiteral(".local");
 
-    m_mdns = new MdnsResponder(QStringLiteral("_FC9F5ED42C8A._tcp.local"), QString::fromLatin1(instanceName), hostName, port, endpointInfo, this);
-    if (!m_mdns->start()) {
-        emit errorOccurred(tr("Could not start mDNS advertising"));
-        stop();
-        return false;
-    }
+    m_mdns = new MdnsResponder(QStringLiteral("_FC9F5ED42C8A._tcp.local"), QString::fromLatin1(instanceName), hostName, m_tcpServer->serverPort(), endpointInfo, this);
+    if (!m_mdns->start())
+        qWarning("Quick Share: LAN discovery unavailable; Bluetooth reception can still run");
 
-    emit started(QString::fromLatin1(instanceName), port);
-    return true;
+    m_bluetooth = new BluetoothReceiver(endpointId, rawEndpointInfo, this);
+    connect(m_bluetooth, &BluetoothReceiver::newConnection, this, [this](BleTransport *transport) { addConnection(transport); });
+    m_bluetooth->start();
+    return QString::fromLatin1(instanceName);
 }
 
 void NearbyServer::stop()
@@ -87,6 +110,10 @@ void NearbyServer::stop()
     const auto connections = findChildren<InboundConnection *>(QString(), Qt::FindDirectChildrenOnly);
     for (auto *connection : connections)
         connection->cancelTransfer();
+    if (m_bluetooth)
+        disconnect(m_bluetooth, nullptr, this, nullptr);
+    delete m_bluetooth;
+    m_bluetooth = nullptr;
     if (m_mdns) {
         m_mdns->stop();
         m_mdns->deleteLater();
@@ -113,16 +140,23 @@ void NearbyServer::onNewConnection()
 {
     while (m_tcpServer->hasPendingConnections()) {
         QTcpSocket *socket = m_tcpServer->nextPendingConnection();
-        if (findChildren<InboundConnection *>(QString(), Qt::FindDirectChildrenOnly).size() >= 8) {
-            socket->abort();
-            socket->deleteLater();
-            continue;
-        }
         qInfo("Quick Share inbound connecting: peer=%s", qPrintable(socket->peerAddress().toString()));
-        auto *conn = new InboundConnection(socket, this);
-        connect(conn, &InboundConnection::transferRequested, this, &NearbyServer::transferRequested);
-        connect(conn, &InboundConnection::transferProgress, this, &NearbyServer::transferProgress);
-        connect(conn, &InboundConnection::textReceived, this, &NearbyServer::textReceived);
-        connect(conn, &InboundConnection::finished, this, &NearbyServer::connectionFinished);
+        addConnection(new TcpInboundTransport(socket));
     }
+}
+
+void NearbyServer::addConnection(InboundTransport *transport)
+{
+    if (findChildren<InboundConnection *>(QString(), Qt::FindDirectChildrenOnly).size() >= 8) {
+        transport->abort();
+        transport->deleteLater();
+        return;
+    }
+    auto *conn = new InboundConnection(transport, this);
+    if (!transport->supportsLanTrust() && m_mdns)
+        conn->setLanUpgradeAddress(m_mdns->ipv4Address());
+    connect(conn, &InboundConnection::transferRequested, this, &NearbyServer::transferRequested);
+    connect(conn, &InboundConnection::transferProgress, this, &NearbyServer::transferProgress);
+    connect(conn, &InboundConnection::textReceived, this, &NearbyServer::textReceived);
+    connect(conn, &InboundConnection::finished, this, &NearbyServer::connectionFinished);
 }

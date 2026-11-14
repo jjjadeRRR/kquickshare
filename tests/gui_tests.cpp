@@ -384,7 +384,6 @@ private slots:
         auto *trust = card->findChild<QCheckBox *>();
         QVERIFY(trust);
         QVERIFY(!trust->isChecked());
-        trust->setChecked(true);
         receiver.grab().save(QString(SOURCE_DIR) + "/build/preview.png");
         QPushButton *accept = nullptr;
         for (auto *button : card->findChildren<QPushButton *>())
@@ -392,7 +391,7 @@ private slots:
                 accept = button;
         QVERIFY(accept);
         QTRY_VERIFY_WITH_TIMEOUT(notifications->title.contains("is sending files"), 8000);
-        const int buttonIndex = notifications->actions.indexOf("Accept");
+        const int buttonIndex = notifications->actions.indexOf("Trust and accept");
         QVERIFY(buttonIndex > 0);
         emit notifications->ActionInvoked(notifications->next, notifications->actions[buttonIndex - 1]);
         QTRY_COMPARE_WITH_TIMEOUT(first.state(), QProcess::NotRunning, 8000);
