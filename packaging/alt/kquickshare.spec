@@ -1,5 +1,5 @@
 Name: kquickshare
-Version: 0.5.1
+Version: 0.6.0
 Release: alt1
 
 Summary: Send and receive Android Quick Share files and text on KDE Plasma
@@ -58,6 +58,10 @@ python3 ../tests/fake_receiver.py --binary ./kquickshare-send
 %_prefix/lib/firewalld/services/kquickshare.xml
 
 %changelog
+* Wed Nov 25 2026 jjjadeRRR <jjjadeRRR@users.noreply.github.com> 0.6.0-alt1
+- Add Bluetooth discovery and reception with LAN handoff.
+- Retry LAN discovery and preserve direct LAN protocol compatibility.
+
 * Thu Nov 12 2026 jjjadeRRR <jjjadeRRR@users.noreply.github.com> 0.5.1-alt1
 - Receive and send batches of up to 1000 files within the descriptor limit.
 - Save received files whose names exceed 255 bytes.
