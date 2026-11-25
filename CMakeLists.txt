@@ -78,6 +78,7 @@ if(BUILD_TESTING)
     if(DBUS_RUN_SESSION)
         add_executable(bluetooth-tests tests/bluetooth_tests.cpp)
         target_link_libraries(bluetooth-tests PRIVATE kqscore Qt6::Test)
+        add_dependencies(bluetooth-tests kquickshare-cli)
         add_test(NAME bluetooth-tests COMMAND ${DBUS_RUN_SESSION} -- sh -c
             "DBUS_SYSTEM_BUS_ADDRESS=\"$DBUS_SESSION_BUS_ADDRESS\" exec \"$1\"" -- $<TARGET_FILE:bluetooth-tests>)
         set_tests_properties(bluetooth-tests PROPERTIES TIMEOUT 30)

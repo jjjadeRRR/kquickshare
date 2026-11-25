@@ -78,8 +78,14 @@ qint64 BleTransport::write(const QByteArray &data)
     return data.size();
 }
 
-QString BleTransport::peerAddress() const { return m_peer; }
-bool BleTransport::supportsLanTrust() const { return false; }
+QString BleTransport::peerAddress() const
+{
+    return m_peer;
+}
+bool BleTransport::supportsLanTrust() const
+{
+    return false;
+}
 
 void BleTransport::disconnectFromPeer()
 {
@@ -90,7 +96,10 @@ void BleTransport::disconnectFromPeer()
         closeNow();
 }
 
-void BleTransport::abort() { closeNow(); }
+void BleTransport::abort()
+{
+    closeNow();
+}
 
 void BleTransport::sendNext()
 {

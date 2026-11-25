@@ -1,3 +1,5 @@
+#include "bleadvertisement.h"
+#include "bletransport.h"
 #include "crypto.h"
 #include "endpointinfo.h"
 #include "frames.h"
@@ -5,11 +7,15 @@
 #include "nearbyserver.h"
 #include "protobuf.h"
 #include "weave.h"
-#include "bleadvertisement.h"
-#include "bletransport.h"
+#include <QNetworkInterface>
+#include <QScopeGuard>
 #include <QTcpServer>
 #include <QTcpSocket>
+#include <QUdpSocket>
 #include <QtTest>
+
+#include <algorithm>
+
 class CoreTests : public QObject
 {
     Q_OBJECT
@@ -28,6 +34,40 @@ private slots:
         server.stop();
         qunsetenv("KQUICKSHARE_DISABLE_BLE");
     }
+    void lanDiscoveryRecoversAfterPortConflict()
+    {
+        const auto addresses = QNetworkInterface::allAddresses();
+        const auto isLanAddress = [](const QHostAddress &address) {
+            return address.protocol() == QAbstractSocket::IPv4Protocol && !address.isLoopback() && !address.isLinkLocal();
+        };
+        if (std::none_of(addresses.cbegin(), addresses.cend(), isLanAddress))
+            QSKIP("mDNS requires a non-loopback IPv4 interface");
+
+        constexpr quint16 mdnsPort = 5353;
+        QUdpSocket blocker;
+        if (!blocker.bind(QHostAddress::AnyIPv4, mdnsPort, QAbstractSocket::DontShareAddress))
+            QSKIP("Requires an unused mDNS port to create a temporary conflict");
+
+        const QByteArray oldDisableBle = qgetenv("KQUICKSHARE_DISABLE_BLE");
+        const auto restoreEnvironment = qScopeGuard([oldDisableBle] {
+            if (oldDisableBle.isNull())
+                qunsetenv("KQUICKSHARE_DISABLE_BLE");
+            else
+                qputenv("KQUICKSHARE_DISABLE_BLE", oldDisableBle);
+        });
+        qputenv("KQUICKSHARE_DISABLE_BLE", "1");
+        NearbyServer server;
+        QSignalSpy started(&server, &NearbyServer::started);
+        QVERIFY(server.start(QStringLiteral("mDNS retry test"), DeviceType::Laptop, 0));
+        blocker.close();
+
+        const auto mdnsIsBound = [mdnsPort] {
+            QUdpSocket probe;
+            return !probe.bind(QHostAddress::AnyIPv4, mdnsPort, QAbstractSocket::DontShareAddress) && probe.error() == QAbstractSocket::AddressInUseError;
+        };
+        QTRY_VERIFY_WITH_TIMEOUT(mdnsIsBound(), 8000);
+        QCOMPARE(started.size(), 1);
+    }
     void bandwidthUpgradeFrames()
     {
         const auto offer = frames::buildBandwidthUpgradeOffer(QByteArray::fromHex("c0a80184"), 12345);
@@ -35,8 +75,11 @@ private slots:
         frames::OfflineFrame frame;
         QVERIFY(frames::parseOfflineFrame(offer, frame));
         QCOMPARE(frame.bandwidthEvent, 1);
-        const auto intro = pb::Writer().varint(1, 1).bytes(2, pb::Writer().varint(1, 4)
-            .bytes(5, pb::Writer().varint(1, 4).bytes(3, pb::Writer().bytes(1, "ABCD").data()).data()).data()).data();
+        const auto intro
+            = pb::Writer()
+                  .varint(1, 1)
+                  .bytes(2, pb::Writer().varint(1, 4).bytes(5, pb::Writer().varint(1, 4).bytes(3, pb::Writer().bytes(1, "ABCD").data()).data()).data())
+                  .data();
         QVERIFY(frames::parseOfflineFrame(intro, frame));
         QCOMPARE(frame.bandwidthEvent, 4);
         QCOMPARE(frame.endpointId, QByteArray("ABCD"));
@@ -57,8 +100,12 @@ private slots:
         Weave client;
         QByteArray reply, ignored;
         QCOMPARE(client.receive(QByteArray::fromHex("80000100010014"), reply, ignored), Weave::Result::Connected);
-        const QByteArray request = pb::Writer().varint(1, 1)
-            .bytes(2, pb::Writer().varint(1, 1).bytes(2, pb::Writer().bytes(6, EndpointInfo::serialize("Bluetooth phone", DeviceType::Phone)).data()).data()).data();
+        const QByteArray request
+            = pb::Writer()
+                  .varint(1, 1)
+                  .bytes(
+                      2, pb::Writer().varint(1, 1).bytes(2, pb::Writer().bytes(6, EndpointInfo::serialize("Bluetooth phone", DeviceType::Phone)).data()).data())
+                  .data();
         const auto incoming = client.encode(frames::lengthPrefixed(request));
         QVERIFY(incoming.size() > 1);
         for (const auto &packet : incoming)

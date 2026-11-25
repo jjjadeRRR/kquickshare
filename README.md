@@ -109,8 +109,8 @@ Remove a device from the Trusted devices tab to revoke it.
 and IPv4 address, rather than a persistent cryptographic identity. Another device
 on the LAN could imitate these values. Use automatic reception only on a LAN you
 trust; an address change requires approval again.
-Bluetooth-only transfers always require approval. When a transfer switches to
-LAN, the same name, type and IP-based trust option becomes available.
+Transfers discovered over Bluetooth always require approval in the desktop app,
+including when the file data is sent over LAN.
 
 ## Send to Android
 
@@ -191,7 +191,8 @@ cancellation after 100%, trust decisions and the clipboard D-Bus action.
 They supplement testing with real phones.
 
 `kquickshare-cli` is a debugging receiver that **automatically accepts every
-request**. It does not use the GUI trust list; use the GUI for everyday reception.
+request**. It listens on LAN by default. The `--bluetooth` flag also enables
+automatic reception from nearby Bluetooth devices. Use the GUI for everyday reception.
 `kquickshare-send` is an uninstalled debugging sender built with the project.
 
 Service logs:

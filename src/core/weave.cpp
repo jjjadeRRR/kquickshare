@@ -8,7 +8,7 @@ namespace
 {
 const QByteArray serviceHash = QByteArray::fromHex("fc9f5e");
 constexpr qsizetype maxMessageSize = frames::kMaxFrameLength + 7;
-}
+} // namespace
 
 Weave::Weave(quint16 maxPacketSize)
     : m_maxPacketSize(std::clamp<quint16>(maxPacketSize, 20, 509))

@@ -1,10 +1,11 @@
-// Entry point of the core library: TCP listener + mDNS advertisement.
+// Entry point of the core library: TCP listener, mDNS and optional BLE discovery.
 // Owns all active inbound connections and re-emits their signals.
 #pragma once
 
 #include "endpointinfo.h"
 
 #include <QObject>
+#include <QTimer>
 
 class QTcpServer;
 class MdnsResponder;
@@ -21,7 +22,7 @@ public:
     ~NearbyServer() override;
 
     // Starts the TCP listener on the requested port (0 = automatic) and advertises it via mDNS.
-    bool start(const QString &deviceName, DeviceType deviceType = DeviceType::Laptop, quint16 listenPort = 0);
+    bool start(const QString &deviceName, DeviceType deviceType = DeviceType::Laptop, quint16 listenPort = 0, bool enableBluetooth = true);
     void stop();
     bool isRunning() const;
     bool hasActiveConnections() const;
@@ -40,11 +41,10 @@ private slots:
 
 private:
     void addConnection(InboundTransport *transport);
-    QString refreshDiscovery();
+    QString startDiscovery(const QString &deviceName, DeviceType deviceType, bool enableBluetooth);
     QTcpServer *m_tcpServer = nullptr;
     MdnsResponder *m_mdns = nullptr;
+    QTimer m_mdnsRetry;
     BluetoothReceiver *m_bluetooth = nullptr;
-    QString m_deviceName;
-    DeviceType m_deviceType = DeviceType::Laptop;
     QByteArray m_endpointId;
 };

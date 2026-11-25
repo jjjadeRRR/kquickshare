@@ -99,6 +99,7 @@ InboundConnection::InboundConnection(InboundTransport *transport, QObject *paren
 
 void InboundConnection::attachTransport(InboundTransport *transport)
 {
+    m_transportClosed = false;
     transport->setParent(this);
     connect(transport, &InboundTransport::readyRead, this, &InboundConnection::onReadyRead);
     connect(transport, &InboundTransport::disconnected, this, &InboundConnection::transportDisconnected);
@@ -106,6 +107,7 @@ void InboundConnection::attachTransport(InboundTransport *transport)
 
 void InboundConnection::transportDisconnected()
 {
+    m_transportClosed = true;
     if (m_upgradeState == UpgradeState::ClosingBluetooth && m_state != State::Done) {
         // Let BlueZ flush the final notification before using the new channel.
         QTimer::singleShot(200, this, &InboundConnection::finishUpgrade);
@@ -117,8 +119,13 @@ void InboundConnection::transportDisconnected()
         m_state = State::Done;
         cleanupFiles(true);
     }
-    emit finished(this, m_savedFiles, m_error);
+    reportTransferFinished();
+}
+
+void InboundConnection::reportTransferFinished()
+{
     deleteLater();
+    emit finished(this, m_savedFiles, m_error);
 }
 
 void InboundConnection::offerLanUpgrade()
@@ -192,8 +199,8 @@ void InboundConnection::readUpgradeIntroduction()
     if (result == frames::FrameRead::Incomplete)
         return;
     frames::OfflineFrame frame;
-    if (result == frames::FrameRead::Invalid || !frames::parseOfflineFrame(intro, frame)
-        || frame.type != frames::OfflineFrameType::BandwidthUpgradeNegotiation || frame.bandwidthEvent != 4 || frame.endpointId != m_peerEndpointId) {
+    if (result == frames::FrameRead::Invalid || !frames::parseOfflineFrame(intro, frame) || frame.type != frames::OfflineFrameType::BandwidthUpgradeNegotiation
+        || frame.bandwidthEvent != 4 || frame.endpointId != m_peerEndpointId) {
         m_upgradeSocket->abort();
         return;
     }
@@ -240,7 +247,6 @@ void InboundConnection::finishUpgrade()
     m_upgradeTimer->stop();
     auto *socket = m_upgradeSocket.data();
     m_peerAddress = socket->peerAddress().toString();
-    m_supportsLanTrust = true;
     m_upgradeSocket = nullptr;
     disconnect(socket, nullptr, this, nullptr);
     disconnect(m_transport, nullptr, this, nullptr);
@@ -248,10 +254,8 @@ void InboundConnection::finishUpgrade()
     m_transport = new TcpInboundTransport(socket);
     attachTransport(m_transport);
     m_upgradeState = UpgradeState::Complete;
-    if (m_requestDeferred) {
+    if (m_requestDeferred)
         m_pendingRequest.peerAddress = m_peerAddress;
-        m_pendingRequest.supportsLanTrust = true;
-    }
     m_readBuffer = std::move(m_upgradeReadBuffer);
     const auto queued = std::move(m_upgradeDeferredFrames);
     m_upgradeDeferredFrames.clear();
@@ -782,7 +786,9 @@ void InboundConnection::sendRawFrame(const QByteArray &frame)
     const QByteArray data = frames::lengthPrefixed(frame);
     if (m_transport->write(data) != data.size() && m_state != State::Done) {
         // Defer the failure: callers may still be updating the protocol state.
-        QTimer::singleShot(0, this, [this] { finishWithError(tr("Could not send data to the device")); });
+        QTimer::singleShot(0, this, [this] {
+            finishWithError(tr("Could not send data to the device"));
+        });
     }
 }
 
@@ -858,6 +864,11 @@ void InboundConnection::finishTransfer(const QString &error)
         socket->deleteLater();
     }
     cleanupFiles(true);
+    if (m_transportClosed) {
+        // A failed handoff can leave us with a BLE transport that already disconnected.
+        reportTransferFinished();
+        return;
+    }
     // finished permits consumers (including --once) to quit/delete us. Emit it
     // from disconnected, after Qt has drained the final protocol frames.
     if (m_encryptionDone)

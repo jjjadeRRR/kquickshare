@@ -112,6 +112,7 @@ private:
     void sendKeepAliveAck();
     void finishWithError(const QString &error);
     void finishTransfer(const QString &error = {});
+    void reportTransferFinished();
     void sendDisconnectionAndClose();
     void cleanupFiles(bool deletePartial);
     void attachTransport(InboundTransport *transport);
@@ -127,7 +128,8 @@ private:
 
     InboundTransport *m_transport;
     QString m_peerAddress;
-    bool m_supportsLanTrust = true;
+    const bool m_supportsLanTrust;
+    bool m_transportClosed = false;
     State m_state = State::Initial;
     QByteArray m_readBuffer;
 

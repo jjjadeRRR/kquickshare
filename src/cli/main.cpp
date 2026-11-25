@@ -24,9 +24,12 @@ int main(int argc, char *argv[])
     const QCommandLineOption nameOption(
         {QStringLiteral("n"), QStringLiteral("name")}, QStringLiteral("Visible device name"), QStringLiteral("name"), QHostInfo::localHostName());
     const QCommandLineOption onceOption(QStringLiteral("once"), QStringLiteral("Exit after the first transfer"));
+    const QCommandLineOption bluetoothOption(
+        QStringLiteral("bluetooth"), QStringLiteral("Enable Bluetooth discovery and automatic reception from nearby devices"));
     parser.addOption(destOption);
     parser.addOption(nameOption);
     parser.addOption(onceOption);
+    parser.addOption(bluetoothOption);
     parser.process(app);
 
     const QString destDir = parser.value(destOption);
@@ -66,7 +69,7 @@ int main(int argc, char *argv[])
             QTimer::singleShot(0, &app, &QCoreApplication::quit);
     });
 
-    if (!server.start(parser.value(nameOption)))
+    if (!server.start(parser.value(nameOption), DeviceType::Laptop, 0, parser.isSet(bluetoothOption)))
         return 1;
     return app.exec();
 }

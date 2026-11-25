@@ -5,6 +5,7 @@
 
 #include <QFile>
 #include <QProcess>
+#include <QScopeGuard>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QTemporaryDir>
@@ -22,6 +23,7 @@ private slots:
         QTest::newRow("peer-declines") << QStringLiteral("decline");
         QTest::newRow("reject-wrong-endpoint") << QStringLiteral("wrong-id-first");
         QTest::newRow("multiple-files") << QStringLiteral("upgrade-multi");
+        QTest::newRow("cancel-during-switch") << QStringLiteral("cancel");
     }
     void transfer()
     {
@@ -38,9 +40,13 @@ private slots:
         auto *connection = new InboundConnection(ble, this);
         connection->setLanUpgradeAddress(QHostAddress::LocalHost, 2000);
         QSignalSpy finished(connection, &InboundConnection::finished);
+        const QPointer<InboundConnection> active(connection);
+        const bool cancelDuringSwitch = mode == QLatin1String("cancel");
+        if (cancelDuringSwitch)
+            connect(ble, &BleTransport::disconnected, connection, &InboundConnection::cancelTransfer, Qt::QueuedConnection);
         connect(connection, &InboundConnection::transferRequested, this, [&](InboundConnection *conn, const TransferRequest &request) {
             const bool upgraded = mode == QLatin1String("upgrade") || mode == QLatin1String("upgrade-multi") || mode == QLatin1String("wrong-id-first");
-            QCOMPARE(request.supportsLanTrust, upgraded);
+            QVERIFY(!request.supportsLanTrust);
             QCOMPARE(request.peerAddress, upgraded ? QStringLiteral("127.0.0.1") : QStringLiteral("Bluetooth"));
             conn->acceptTransfer(directory.path());
         });
@@ -63,7 +69,22 @@ private slots:
                 peerSocket->write(data);
         });
         QProcess sender;
-        sender.start(QStringLiteral(PYTHON_EXECUTABLE), {QStringLiteral(SOURCE_DIR "/tests/fake_upgrade_sender.py"), QString::number(peerServer.serverPort()), mode});
+        const auto stopSender = qScopeGuard([&sender] {
+            if (sender.state() != QProcess::NotRunning) {
+                sender.kill();
+                sender.waitForFinished();
+            }
+        });
+        sender.start(QStringLiteral(PYTHON_EXECUTABLE),
+            {QStringLiteral(SOURCE_DIR "/tests/fake_upgrade_sender.py"),
+                QString::number(peerServer.serverPort()),
+                cancelDuringSwitch ? QStringLiteral("upgrade") : mode});
+        if (cancelDuringSwitch) {
+            QTRY_COMPARE_WITH_TIMEOUT(finished.count(), 1, 5000);
+            QCOMPARE(finished.first().at(2).toString(), QStringLiteral("Transfer cancelled"));
+            QTRY_VERIFY(active.isNull());
+            return;
+        }
         QTRY_COMPARE_WITH_TIMEOUT(sender.state(), QProcess::NotRunning, 12000);
         QVERIFY2(sender.exitCode() == 0, sender.readAllStandardError().constData());
         QTRY_COMPARE_WITH_TIMEOUT(finished.count(), 1, 5000);

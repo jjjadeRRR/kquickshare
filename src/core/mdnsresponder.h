@@ -21,7 +21,10 @@ public:
 
     bool start();
     void stop();
-    QHostAddress ipv4Address() const { return m_ipv4; }
+    QHostAddress ipv4Address() const
+    {
+        return m_ipv4;
+    }
 
 private:
     void onReadyRead();

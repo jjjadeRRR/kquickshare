@@ -1,9 +1,9 @@
 #include "nearbyserver.h"
 
-#include "inboundconnection.h"
-#include "inboundtransport.h"
 #include "bletransport.h"
 #include "bluetoothreceiver.h"
+#include "inboundconnection.h"
+#include "inboundtransport.h"
 #include "mdnsresponder.h"
 
 #include <QHostInfo>
@@ -40,14 +40,20 @@ QString sanitizeHostLabel(const QString &hostName)
 NearbyServer::NearbyServer(QObject *parent)
     : QObject(parent)
     , m_endpointId(generateEndpointId())
-{ }
+{
+    m_mdnsRetry.setInterval(5000);
+    connect(&m_mdnsRetry, &QTimer::timeout, this, [this] {
+        if (m_mdns->start())
+            m_mdnsRetry.stop();
+    });
+}
 
 NearbyServer::~NearbyServer()
 {
     stop();
 }
 
-bool NearbyServer::start(const QString &deviceName, DeviceType deviceType, quint16 listenPort)
+bool NearbyServer::start(const QString &deviceName, DeviceType deviceType, quint16 listenPort, bool enableBluetooth)
 {
     stop();
 
@@ -58,27 +64,13 @@ bool NearbyServer::start(const QString &deviceName, DeviceType deviceType, quint
         return false;
     }
     connect(m_tcpServer, &QTcpServer::newConnection, this, &NearbyServer::onNewConnection);
-    m_deviceName = deviceName;
-    m_deviceType = deviceType;
-    const QString instanceName = refreshDiscovery();
+    const QString instanceName = startDiscovery(deviceName, deviceType, enableBluetooth);
     emit started(instanceName, m_tcpServer->serverPort());
     return true;
 }
 
-QString NearbyServer::refreshDiscovery()
+QString NearbyServer::startDiscovery(const QString &deviceName, DeviceType deviceType, bool enableBluetooth)
 {
-    if (!m_tcpServer || !m_tcpServer->isListening())
-        return {};
-    if (m_bluetooth)
-        disconnect(m_bluetooth, nullptr, this, nullptr);
-    delete m_bluetooth;
-    m_bluetooth = nullptr;
-    if (m_mdns) {
-        m_mdns->stop();
-        m_mdns->deleteLater();
-        m_mdns = nullptr;
-    }
-
     // Service instance name: base64url(0x23 | endpointId | 0xFC 0x9F 0x5E | 0x00 0x00)
     const QByteArray endpointId = m_endpointId;
     QByteArray nameBytes;
@@ -88,25 +80,33 @@ QString NearbyServer::refreshDiscovery()
     nameBytes.append(char(0x00)).append(char(0x00));
     const QByteArray instanceName = base64UrlEncode(nameBytes);
 
-    const QByteArray rawEndpointInfo = EndpointInfo::serialize(m_deviceName, m_deviceType);
+    const QByteArray rawEndpointInfo = EndpointInfo::serialize(deviceName, deviceType);
     const QByteArray endpointInfo = base64UrlEncode(rawEndpointInfo);
     // Use our own host label: answering for the machine's "<hostname>.local"
     // with cache-flush set conflicts with avahi-daemon on multi-homed hosts.
     const QString hostName
         = sanitizeHostLabel(QHostInfo::localHostName()) + QStringLiteral("-quickshare-") + QString::fromLatin1(endpointId).toLower() + QStringLiteral(".local");
 
-    m_mdns = new MdnsResponder(QStringLiteral("_FC9F5ED42C8A._tcp.local"), QString::fromLatin1(instanceName), hostName, m_tcpServer->serverPort(), endpointInfo, this);
-    if (!m_mdns->start())
-        qWarning("Quick Share: LAN discovery unavailable; Bluetooth reception can still run");
+    m_mdns = new MdnsResponder(
+        QStringLiteral("_FC9F5ED42C8A._tcp.local"), QString::fromLatin1(instanceName), hostName, m_tcpServer->serverPort(), endpointInfo, this);
+    if (!m_mdns->start()) {
+        qWarning("Quick Share: LAN discovery unavailable; will retry");
+        m_mdnsRetry.start();
+    }
 
-    m_bluetooth = new BluetoothReceiver(endpointId, rawEndpointInfo, this);
-    connect(m_bluetooth, &BluetoothReceiver::newConnection, this, [this](BleTransport *transport) { addConnection(transport); });
-    m_bluetooth->start();
+    if (enableBluetooth) {
+        m_bluetooth = new BluetoothReceiver(endpointId, rawEndpointInfo, this);
+        connect(m_bluetooth, &BluetoothReceiver::newConnection, this, [this](BleTransport *transport) {
+            addConnection(transport);
+        });
+        m_bluetooth->start();
+    }
     return QString::fromLatin1(instanceName);
 }
 
 void NearbyServer::stop()
 {
+    m_mdnsRetry.stop();
     const auto connections = findChildren<InboundConnection *>(QString(), Qt::FindDirectChildrenOnly);
     for (auto *connection : connections)
         connection->cancelTransfer();

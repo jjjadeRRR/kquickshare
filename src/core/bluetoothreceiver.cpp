@@ -53,7 +53,10 @@ class GattManagerObject : public QObject
 public:
     ManagedObjects objects;
 public slots:
-    ManagedObjects GetManagedObjects() const { return objects; }
+    ManagedObjects GetManagedObjects() const
+    {
+        return objects;
+    }
 };
 
 class GattServiceObject : public QObject
@@ -63,8 +66,14 @@ class GattServiceObject : public QObject
     Q_PROPERTY(QString UUID READ uuid CONSTANT)
     Q_PROPERTY(bool Primary READ primary CONSTANT)
 public:
-    QString uuid() const { return serviceUuid; }
-    bool primary() const { return true; }
+    QString uuid() const
+    {
+        return serviceUuid;
+    }
+    bool primary() const
+    {
+        return true;
+    }
 };
 
 class GattCharacteristicObject : public QObject, protected QDBusContext
@@ -78,13 +87,36 @@ class GattCharacteristicObject : public QObject, protected QDBusContext
     Q_PROPERTY(bool Notifying READ notifying)
 public:
     GattCharacteristicObject(const QDBusConnection &bus, const QString &path, const QString &uuid, const QStringList &flags, const QString &bluezOwner)
-        : m_bus(bus), m_path(path), m_uuid(uuid), m_flags(flags), m_bluezOwner(bluezOwner) { }
-    QString uuid() const { return m_uuid; }
-    QDBusObjectPath service() const { return QDBusObjectPath(servicePath); }
-    QStringList flags() const { return m_flags; }
-    QByteArray value() const { return m_value; }
-    bool notifying() const { return m_notifying; }
-    void setValue(const QByteArray &value) { m_value = value; }
+        : m_bus(bus)
+        , m_path(path)
+        , m_uuid(uuid)
+        , m_flags(flags)
+        , m_bluezOwner(bluezOwner)
+    { }
+    QString uuid() const
+    {
+        return m_uuid;
+    }
+    QDBusObjectPath service() const
+    {
+        return QDBusObjectPath(servicePath);
+    }
+    QStringList flags() const
+    {
+        return m_flags;
+    }
+    QByteArray value() const
+    {
+        return m_value;
+    }
+    bool notifying() const
+    {
+        return m_notifying;
+    }
+    void setValue(const QByteArray &value)
+    {
+        m_value = value;
+    }
     std::function<bool(const QByteArray &, const QVariantMap &)> writeHandler;
     std::function<void(bool)> notifyHandler;
 
@@ -140,9 +172,14 @@ public slots:
         if (notifyHandler)
             notifyHandler(false);
     }
-    void Confirm() { }
+    void Confirm()
+    { }
+
 private:
-    bool authorized() const { return calledFromDBus() && message().service() == m_bluezOwner; }
+    bool authorized() const
+    {
+        return calledFromDBus() && message().service() == m_bluezOwner;
+    }
     QDBusConnection m_bus;
     QString m_path, m_uuid;
     QStringList m_flags;
@@ -162,13 +199,31 @@ class AdvertisementObject : public QObject
     Q_PROPERTY(uint MaxInterval READ maxInterval CONSTANT)
 public:
     QByteArray advertisement;
-    QString type() const { return QStringLiteral("peripheral"); }
-    QString secondaryChannel() const { return QStringLiteral("1M"); }
-    uint minInterval() const { return 100; }
-    uint maxInterval() const { return 150; }
-    QVariantMap serviceData() const { return {{serviceUuid, advertisement}}; }
+    QString type() const
+    {
+        return QStringLiteral("peripheral");
+    }
+    QString secondaryChannel() const
+    {
+        return QStringLiteral("1M");
+    }
+    uint minInterval() const
+    {
+        return 100;
+    }
+    uint maxInterval() const
+    {
+        return 150;
+    }
+    QVariantMap serviceData() const
+    {
+        return {{serviceUuid, advertisement}};
+    }
 public slots:
-    void Release() { emit released(); }
+    void Release()
+    {
+        emit released();
+    }
 signals:
     void released();
 };
@@ -178,9 +233,12 @@ class BluetoothReceiverImpl : public QObject
     Q_OBJECT
 public:
     BluetoothReceiverImpl(BluetoothReceiver *owner, QByteArray endpointId, QByteArray endpointInfo)
-        : QObject(owner), m_owner(owner), m_endpointId(std::move(endpointId)), m_endpointInfo(std::move(endpointInfo)),
-          m_connectionName(QStringLiteral("kquickshare-ble-%1").arg(quintptr(this))),
-          m_bus(QDBusConnection::connectToBus(QDBusConnection::SystemBus, m_connectionName))
+        : QObject(owner)
+        , m_owner(owner)
+        , m_endpointId(std::move(endpointId))
+        , m_endpointInfo(std::move(endpointInfo))
+        , m_connectionName(QStringLiteral("kquickshare-ble-%1").arg(quintptr(this)))
+        , m_bus(QDBusConnection::connectToBus(QDBusConnection::SystemBus, m_connectionName))
     {
         m_advertisementTimer.setSingleShot(true);
         connect(&m_advertisementTimer, &QTimer::timeout, this, &BluetoothReceiverImpl::refreshAdvertisement);
@@ -201,10 +259,13 @@ public:
             return;
         }
         auto *serviceWatcher = new QDBusServiceWatcher(QStringLiteral("org.bluez"), m_bus, QDBusServiceWatcher::WatchForUnregistration, this);
-        connect(serviceWatcher, &QDBusServiceWatcher::serviceUnregistered, this, [this] { emit failed(); });
+        connect(serviceWatcher, &QDBusServiceWatcher::serviceUnregistered, this, [this] {
+            emit failed();
+        });
         qDBusRegisterMetaType<InterfaceProperties>();
         qDBusRegisterMetaType<ManagedObjects>();
-        auto *watch = new QDBusPendingCallWatcher(call(m_bus, QStringLiteral("/"), QStringLiteral("org.freedesktop.DBus.ObjectManager"), QStringLiteral("GetManagedObjects")), this);
+        auto *watch = new QDBusPendingCallWatcher(
+            call(m_bus, QStringLiteral("/"), QStringLiteral("org.freedesktop.DBus.ObjectManager"), QStringLiteral("GetManagedObjects")), this);
         connect(watch, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *watcher) {
             static bool reportedUnavailable = false;
             static bool reportedNoAdapter = false;
@@ -236,7 +297,10 @@ public:
         });
     }
 
-    bool hasActiveSession() const { return !m_session.isNull(); }
+    bool hasActiveSession() const
+    {
+        return !m_session.isNull();
+    }
 
 signals:
     void failed();
@@ -268,10 +332,14 @@ private:
                 emit failed();
         });
 
-        m_manager->objects.insert(QDBusObjectPath(servicePath), {{serviceInterface, {{QStringLiteral("UUID"), serviceUuid}, {QStringLiteral("Primary"), true}}}});
+        m_manager->objects.insert(
+            QDBusObjectPath(servicePath), {{serviceInterface, {{QStringLiteral("UUID"), serviceUuid}, {QStringLiteral("Primary"), true}}}});
         const auto addChar = [this](const QString &path, GattCharacteristicObject *c) {
-            m_manager->objects.insert(QDBusObjectPath(path), {{charInterface, {{QStringLiteral("UUID"), c->uuid()},
-                {QStringLiteral("Service"), QVariant::fromValue(QDBusObjectPath(servicePath))}, {QStringLiteral("Flags"), c->flags()}}}});
+            m_manager->objects.insert(QDBusObjectPath(path),
+                {{charInterface,
+                    {{QStringLiteral("UUID"), c->uuid()},
+                        {QStringLiteral("Service"), QVariant::fromValue(QDBusObjectPath(servicePath))},
+                        {QStringLiteral("Flags"), c->flags()}}}});
         };
         addChar(slotPath, m_slot);
         addChar(writePath, m_write);
@@ -286,7 +354,9 @@ private:
             if (!enabled && m_advertised && !m_refreshingAdvertisement)
                 m_advertisementTimer.start(250);
         };
-        m_write->writeHandler = [this](const QByteArray &packet, const QVariantMap &options) { return receive(packet, options); };
+        m_write->writeHandler = [this](const QByteArray &packet, const QVariantMap &options) {
+            return receive(packet, options);
+        };
 
         const auto flags = QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllProperties;
         if (!m_bus.registerObject(rootPath, m_manager, flags) || !m_bus.registerObject(servicePath, m_service, flags)
@@ -296,8 +366,12 @@ private:
             emit failed();
             return;
         }
-        auto *watch = new QDBusPendingCallWatcher(call(m_bus, m_adapter, QStringLiteral("org.bluez.GattManager1"), QStringLiteral("RegisterApplication"),
-            {QVariant::fromValue(QDBusObjectPath(rootPath)), QVariantMap{}}), this);
+        auto *watch = new QDBusPendingCallWatcher(call(m_bus,
+                                                      m_adapter,
+                                                      QStringLiteral("org.bluez.GattManager1"),
+                                                      QStringLiteral("RegisterApplication"),
+                                                      {QVariant::fromValue(QDBusObjectPath(rootPath)), QVariantMap{}}),
+            this);
         connect(watch, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *watcher) {
             QDBusPendingReply<> reply = *watcher;
             watcher->deleteLater();
@@ -312,8 +386,12 @@ private:
 
     void registerAdvertisement()
     {
-        auto *watch = new QDBusPendingCallWatcher(call(m_bus, m_adapter, QStringLiteral("org.bluez.LEAdvertisingManager1"), QStringLiteral("RegisterAdvertisement"),
-            {QVariant::fromValue(QDBusObjectPath(adPath)), QVariantMap{}}), this);
+        auto *watch = new QDBusPendingCallWatcher(call(m_bus,
+                                                      m_adapter,
+                                                      QStringLiteral("org.bluez.LEAdvertisingManager1"),
+                                                      QStringLiteral("RegisterAdvertisement"),
+                                                      {QVariant::fromValue(QDBusObjectPath(adPath)), QVariantMap{}}),
+            this);
         connect(watch, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *watcher) {
             QDBusPendingReply<> reply = *watcher;
             watcher->deleteLater();
@@ -341,8 +419,12 @@ private:
         }
         m_refreshingAdvertisement = true;
         m_advertised = false;
-        auto *watch = new QDBusPendingCallWatcher(call(m_bus, m_adapter, QStringLiteral("org.bluez.LEAdvertisingManager1"),
-            QStringLiteral("UnregisterAdvertisement"), {QVariant::fromValue(QDBusObjectPath(adPath))}), this);
+        auto *watch = new QDBusPendingCallWatcher(call(m_bus,
+                                                      m_adapter,
+                                                      QStringLiteral("org.bluez.LEAdvertisingManager1"),
+                                                      QStringLiteral("UnregisterAdvertisement"),
+                                                      {QVariant::fromValue(QDBusObjectPath(adPath))}),
+            this);
         connect(watch, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *watcher) {
             QDBusPendingReply<> reply = *watcher;
             watcher->deleteLater();
@@ -390,7 +472,9 @@ private:
                 else if (m_session)
                     m_session->abort();
             });
-            connect(transport, &BleTransport::established, this, [this, transport] { emit m_owner->newConnection(transport); });
+            connect(transport, &BleTransport::established, this, [this, transport] {
+                emit m_owner->newConnection(transport);
+            });
             connect(transport, &BleTransport::disconnected, this, [this, transport] {
                 if (m_session == transport) {
                     m_session = nullptr;
@@ -421,7 +505,11 @@ private:
 };
 
 BluetoothReceiver::BluetoothReceiver(const QByteArray &endpointId, const QByteArray &endpointInfo, QObject *parent)
-    : QObject(parent), m_endpointId(endpointId), m_endpointInfo(endpointInfo), m_impl(nullptr), m_retryTimer(new QTimer(this))
+    : QObject(parent)
+    , m_endpointId(endpointId)
+    , m_endpointInfo(endpointInfo)
+    , m_impl(nullptr)
+    , m_retryTimer(new QTimer(this))
 {
     m_retryTimer->setSingleShot(true);
     connect(m_retryTimer, &QTimer::timeout, this, [this] {
@@ -436,7 +524,10 @@ BluetoothReceiver::BluetoothReceiver(const QByteArray &endpointId, const QByteAr
     createImpl();
 }
 BluetoothReceiver::~BluetoothReceiver() = default;
-void BluetoothReceiver::start() { m_impl->start(); }
+void BluetoothReceiver::start()
+{
+    m_impl->start();
+}
 void BluetoothReceiver::createImpl()
 {
     m_impl = new BluetoothReceiverImpl(this, m_endpointId, m_endpointInfo);

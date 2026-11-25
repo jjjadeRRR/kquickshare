@@ -1,15 +1,17 @@
-#include "bluetoothreceiver.h"
 #include "bletransport.h"
+#include "bluetoothreceiver.h"
 #include "endpointinfo.h"
 
-#include <QDBusConnection>
 #include <QDBusAbstractAdaptor>
+#include <QDBusConnection>
 #include <QDBusContext>
 #include <QDBusMessage>
 #include <QDBusMetaType>
 #include <QDBusObjectPath>
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
+#include <QProcess>
+#include <QScopeGuard>
 #include <QtTest>
 
 using PropertiesByInterface = QMap<QString, QVariantMap>;
@@ -24,8 +26,10 @@ class FakeRoot : public QObject
 public slots:
     ObjectsByPath GetManagedObjects() const
     {
-        return {{QDBusObjectPath("/org/bluez/hci0"), {{"org.bluez.Adapter1", {{"Powered", true}, {"Address", "00:11:22:33:44:55"}}},
-            {"org.bluez.GattManager1", {}}, {"org.bluez.LEAdvertisingManager1", {}}}}};
+        return {{QDBusObjectPath("/org/bluez/hci0"),
+            {{"org.bluez.Adapter1", {{"Powered", true}, {"Address", "00:11:22:33:44:55"}}},
+                {"org.bluez.GattManager1", {}},
+                {"org.bluez.LEAdvertisingManager1", {}}}}};
     }
 };
 
@@ -34,11 +38,17 @@ class FakeGattManager : public QDBusAbstractAdaptor
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.bluez.GattManager1")
 public:
-    explicit FakeGattManager(QObject *parent) : QDBusAbstractAdaptor(parent) { }
+    explicit FakeGattManager(QObject *parent)
+        : QDBusAbstractAdaptor(parent)
+    { }
     QString sender;
     int registrations = 0;
 public slots:
-    void RegisterApplication(const QDBusObjectPath &, const QVariantMap &, const QDBusMessage &message) { sender = message.service(); ++registrations; }
+    void RegisterApplication(const QDBusObjectPath &, const QVariantMap &, const QDBusMessage &message)
+    {
+        sender = message.service();
+        ++registrations;
+    }
 };
 
 class FakeAdvertisingManager : public QDBusAbstractAdaptor
@@ -46,18 +56,71 @@ class FakeAdvertisingManager : public QDBusAbstractAdaptor
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.bluez.LEAdvertisingManager1")
 public:
-    explicit FakeAdvertisingManager(QObject *parent) : QDBusAbstractAdaptor(parent) { }
+    explicit FakeAdvertisingManager(QObject *parent)
+        : QDBusAbstractAdaptor(parent)
+    { }
     int registrations = 0;
     int unregistrations = 0;
 public slots:
-    void RegisterAdvertisement(const QDBusObjectPath &, const QVariantMap &) { ++registrations; }
-    void UnregisterAdvertisement(const QDBusObjectPath &) { ++unregistrations; }
+    void RegisterAdvertisement(const QDBusObjectPath &, const QVariantMap &)
+    {
+        ++registrations;
+    }
+    void UnregisterAdvertisement(const QDBusObjectPath &)
+    {
+        ++unregistrations;
+    }
 };
 
 class BluetoothTests : public QObject
 {
     Q_OBJECT
 private slots:
+    void cliBluetoothIsOptIn_data()
+    {
+        QTest::addColumn<bool>("enabled");
+        QTest::newRow("lan-by-default") << false;
+        QTest::newRow("explicit-bluetooth") << true;
+    }
+    void cliBluetoothIsOptIn()
+    {
+        QFETCH(bool, enabled);
+        qDBusRegisterMetaType<PropertiesByInterface>();
+        qDBusRegisterMetaType<ObjectsByPath>();
+        auto bus = QDBusConnection::systemBus();
+        QVERIFY(bus.registerService("org.bluez"));
+        const auto unregister = qScopeGuard([&bus] {
+            bus.unregisterService("org.bluez");
+        });
+        FakeRoot root;
+        QObject adapter;
+        FakeGattManager gatt(&adapter);
+        FakeAdvertisingManager advertising(&adapter);
+        QVERIFY(bus.registerObject("/", &root, QDBusConnection::ExportAllSlots));
+        QVERIFY(bus.registerObject("/org/bluez/hci0", &adapter, QDBusConnection::ExportAdaptors));
+
+        QProcess cli;
+        const auto stopCli = qScopeGuard([&cli] {
+            if (cli.state() != QProcess::NotRunning) {
+                cli.kill();
+                cli.waitForFinished();
+            }
+        });
+        auto environment = QProcessEnvironment::systemEnvironment();
+        environment.remove("KQUICKSHARE_DISABLE_BLE");
+        environment.insert("QT_FORCE_STDERR_LOGGING", "1");
+        cli.setProcessEnvironment(environment);
+        const QStringList arguments = enabled ? QStringList{QStringLiteral("--bluetooth")} : QStringList{};
+        cli.start(QCoreApplication::applicationDirPath() + QStringLiteral("/kquickshare-cli"), arguments);
+        QByteArray stderrOutput;
+        QTRY_VERIFY_WITH_TIMEOUT((stderrOutput += cli.readAllStandardError()).contains("Advertising service"), 3000);
+        if (enabled) {
+            QTRY_COMPARE_WITH_TIMEOUT(advertising.registrations, 1, 3000);
+        } else {
+            QTest::qWait(500);
+            QCOMPARE(advertising.registrations, 0);
+        }
+    }
     void bluezSession()
     {
         qDBusRegisterMetaType<PropertiesByInterface>();
@@ -77,8 +140,12 @@ private slots:
         receiver.start();
         QTRY_VERIFY_WITH_TIMEOUT(!gatt.sender.isEmpty(), 5000);
         QTRY_COMPARE_WITH_TIMEOUT(advertising.registrations, 1, 5000);
-        QVERIFY(bus.connect(gatt.sender, "/org/kde/kquickshare/ble/service0/char2", "org.freedesktop.DBus.Properties", "PropertiesChanged",
-            this, SLOT(propertiesChanged(QString,QVariantMap,QStringList))));
+        QVERIFY(bus.connect(gatt.sender,
+            "/org/kde/kquickshare/ble/service0/char2",
+            "org.freedesktop.DBus.Properties",
+            "PropertiesChanged",
+            this,
+            SLOT(propertiesChanged(QString, QVariantMap, QStringList))));
         auto write = QDBusMessage::createMethodCall(gatt.sender, "/org/kde/kquickshare/ble/service0/char1", "org.bluez.GattCharacteristic1", "WriteValue");
         write << QByteArray::fromHex("80000100010014")
               << QVariantMap{{"device", QVariant::fromValue(QDBusObjectPath("/org/bluez/hci0/dev_test"))}, {"mtu", QVariant::fromValue(quint16(23))}};
@@ -110,6 +177,7 @@ public slots:
         if (interface == QLatin1String("org.bluez.GattCharacteristic1"))
             m_value = values.value(QStringLiteral("Value")).toByteArray();
     }
+
 private:
     QByteArray m_value;
 };

@@ -14,9 +14,28 @@ TcpInboundTransport::TcpInboundTransport(QTcpSocket *socket)
     connect(socket, &QTcpSocket::disconnected, this, &InboundTransport::disconnected);
 }
 
-QByteArray TcpInboundTransport::readAll() { return m_socket->readAll(); }
-qint64 TcpInboundTransport::write(const QByteArray &data) { return m_socket->write(data); }
-QString TcpInboundTransport::peerAddress() const { return m_socket->peerAddress().toString(); }
-bool TcpInboundTransport::supportsLanTrust() const { return true; }
-void TcpInboundTransport::disconnectFromPeer() { m_socket->flush(); m_socket->disconnectFromHost(); }
-void TcpInboundTransport::abort() { m_socket->abort(); }
+QByteArray TcpInboundTransport::readAll()
+{
+    return m_socket->readAll();
+}
+qint64 TcpInboundTransport::write(const QByteArray &data)
+{
+    return m_socket->write(data);
+}
+QString TcpInboundTransport::peerAddress() const
+{
+    return m_socket->peerAddress().toString();
+}
+bool TcpInboundTransport::supportsLanTrust() const
+{
+    return true;
+}
+void TcpInboundTransport::disconnectFromPeer()
+{
+    m_socket->flush();
+    m_socket->disconnectFromHost();
+}
+void TcpInboundTransport::abort()
+{
+    m_socket->abort();
+}
