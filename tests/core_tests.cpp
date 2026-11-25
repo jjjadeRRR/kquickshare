@@ -73,20 +73,21 @@ private slots:
         const auto offer = frames::buildBandwidthUpgradeOffer(QByteArray::fromHex("c0a80184"), 12345);
         QCOMPARE(offer, QByteArray::fromHex("0801121708042a130801120f08051a090a04c0a8018410b9604801"));
         frames::OfflineFrame frame;
-        QVERIFY(frames::parseOfflineFrame(offer, frame));
+        QVERIFY(frames::parseOfflineFrame(offer, frame, frames::BandwidthUpgradeParsing::Decode));
         QCOMPARE(frame.bandwidthEvent, 1);
         const auto intro
             = pb::Writer()
                   .varint(1, 1)
                   .bytes(2, pb::Writer().varint(1, 4).bytes(5, pb::Writer().varint(1, 4).bytes(3, pb::Writer().bytes(1, "ABCD").data()).data()).data())
                   .data();
-        QVERIFY(frames::parseOfflineFrame(intro, frame));
+        QVERIFY(frames::parseOfflineFrame(intro, frame, frames::BandwidthUpgradeParsing::Decode));
         QCOMPARE(frame.bandwidthEvent, 4);
         QCOMPARE(frame.endpointId, QByteArray("ABCD"));
         QVERIFY(frames::buildBandwidthUpgradeOffer("bad", 123).isEmpty());
-        QVERIFY(frames::parseOfflineFrame(frames::buildBandwidthUpgradeEvent(6), frame));
+        QVERIFY(frames::parseOfflineFrame(frames::buildBandwidthUpgradeEvent(6), frame, frames::BandwidthUpgradeParsing::Decode));
         QCOMPARE(frame.bandwidthEvent, 6);
-        QCOMPARE(frames::buildDisconnectionOfflineFrame(), QByteArray::fromHex("0801120808063a0408001000"));
+        QCOMPARE(frames::buildDisconnectionOfflineFrame(), QByteArray::fromHex("0801120408063a00"));
+        QCOMPARE(frames::buildDisconnectionOfflineFrame(true), QByteArray::fromHex("0801120808063a0408001000"));
     }
     void bleStreamReachesInboundProtocol()
     {

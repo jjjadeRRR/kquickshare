@@ -50,7 +50,7 @@ FrameRead takeFrame(QByteArray &buffer, QByteArray &frame)
 
 // ---------------- OfflineFrame ----------------
 
-bool parseOfflineFrame(const QByteArray &data, OfflineFrame &out)
+bool parseOfflineFrame(const QByteArray &data, OfflineFrame &out, BandwidthUpgradeParsing upgrade)
 {
     QVector<pb::Field> root;
     if (!pb::parseMessage(data, root))
@@ -139,6 +139,8 @@ bool parseOfflineFrame(const QByteArray &data, OfflineFrame &out)
         return true;
     }
     case OfflineFrameType::BandwidthUpgradeNegotiation: {
+        if (upgrade == BandwidthUpgradeParsing::Ignore)
+            return true;
         QByteArray raw;
         QVector<pb::Field> fields;
         uint64_t event = 0;
@@ -180,12 +182,11 @@ QByteArray buildKeepAliveOfflineFrame(bool ack)
     return offlineV1(v1);
 }
 
-QByteArray buildDisconnectionOfflineFrame()
+QByteArray buildDisconnectionOfflineFrame(bool explicitImmediate)
 {
-    // Explicitly mark this as an immediate disconnect. Nearby uses the same
-    // frame to release a paused channel during a bandwidth upgrade.
     pb::Writer disc;
-    disc.varint(1, 0).varint(2, 0);
+    if (explicitImmediate)
+        disc.varint(1, 0).varint(2, 0);
     pb::Writer v1;
     v1.varint(1, int(OfflineFrameType::Disconnection)).bytes(7, disc.data());
     return offlineV1(v1);

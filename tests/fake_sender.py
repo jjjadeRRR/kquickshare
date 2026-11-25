@@ -277,6 +277,16 @@ class Transfers(unittest.TestCase):
         self.wait()
         self.assertEqual((self.dest / 'last.txt').read_bytes(), b'hello')
 
+    def test_direct_lan_ignores_unused_bandwidth_negotiation(self):
+        self.sender.introduce([(10, 'lan.txt', 4)])
+        self.sender.payload(10, 2, 4, 0, b'L')
+        self.sender.send(self.sender.secure(offline(4, 5, b'')))
+        self.sender.payload(10, 2, 4, 1, b'AN!', True)
+        self.wait()
+        self.assertTrue((self.dest / 'lan.txt').is_file(), 'direct LAN transfer was interrupted')
+        self.assertEqual((self.dest / 'lan.txt').read_bytes(), b'LAN!')
+        self.assertEqual(self.sender.recv_secure(), offline(6, 7, b''))
+
     def test_truncated_file(self):
         self.sender.introduce([(10, 'truncated', 100)])
         self.sender.payload(10, 2, 100, 0, b'bad', True)

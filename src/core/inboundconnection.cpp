@@ -199,8 +199,8 @@ void InboundConnection::readUpgradeIntroduction()
     if (result == frames::FrameRead::Incomplete)
         return;
     frames::OfflineFrame frame;
-    if (result == frames::FrameRead::Invalid || !frames::parseOfflineFrame(intro, frame) || frame.type != frames::OfflineFrameType::BandwidthUpgradeNegotiation
-        || frame.bandwidthEvent != 4 || frame.endpointId != m_peerEndpointId) {
+    if (result == frames::FrameRead::Invalid || !frames::parseOfflineFrame(intro, frame, frames::BandwidthUpgradeParsing::Decode)
+        || frame.type != frames::OfflineFrameType::BandwidthUpgradeNegotiation || frame.bandwidthEvent != 4 || frame.endpointId != m_peerEndpointId) {
         m_upgradeSocket->abort();
         return;
     }
@@ -231,7 +231,8 @@ void InboundConnection::handleUpgradeEvent(int event)
         sendEncryptedOfflineFrameNow(frames::buildBandwidthUpgradeEvent(3)); // SAFE_TO_CLOSE_PRIOR_CHANNEL
     } else if (event == 3 && m_upgradeSentSafe) {
         m_upgradeState = UpgradeState::ClosingBluetooth;
-        sendRawFrame(frames::buildDisconnectionOfflineFrame()); // plaintext on the old channel
+        // Release the paused Bluetooth channel with an explicit immediate disconnect.
+        sendRawFrame(frames::buildDisconnectionOfflineFrame(true));
         m_transport->disconnectFromPeer();
     }
 }
@@ -484,7 +485,8 @@ void InboundConnection::processSecureMessage(const QByteArray &frameData)
         return;
     }
     frames::OfflineFrame frame;
-    if (!frames::parseOfflineFrame(offlineFrameRaw, frame)) {
+    const bool upgrading = m_upgradeState == UpgradeState::Offered || m_upgradeState == UpgradeState::Draining;
+    if (!frames::parseOfflineFrame(offlineFrameRaw, frame, upgrading ? frames::BandwidthUpgradeParsing::Decode : frames::BandwidthUpgradeParsing::Ignore)) {
         finishWithError(tr("Invalid offline frame"));
         return;
     }

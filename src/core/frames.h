@@ -72,12 +72,13 @@ struct OfflineFrame
     int connectionResponse = 0;
 };
 
-bool parseOfflineFrame(const QByteArray &data, OfflineFrame &out);
+enum class BandwidthUpgradeParsing { Ignore, Decode };
+bool parseOfflineFrame(const QByteArray &data, OfflineFrame &out, BandwidthUpgradeParsing upgrade = BandwidthUpgradeParsing::Ignore);
 
 QByteArray buildPayloadTransfer(const PayloadHeader &header, const PayloadChunk &chunk);
 QByteArray buildConnectionResponseAccept();
 QByteArray buildKeepAliveOfflineFrame(bool ack);
-QByteArray buildDisconnectionOfflineFrame();
+QByteArray buildDisconnectionOfflineFrame(bool explicitImmediate = false);
 QByteArray buildBandwidthUpgradeOffer(const QByteArray &ipv4, quint16 port);
 QByteArray buildBandwidthUpgradeEvent(int event);
 // Two-frames-per-message payload, mirroring Android: data frame + empty LAST_CHUNK frame.
